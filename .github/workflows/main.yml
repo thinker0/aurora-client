@@ -12,7 +12,9 @@ jobs:
     - name: Set up Python 2.7
       uses: actions/setup-python@v1
       with:
-        python-version: 2.7 
+        python-version: 2.7
+    - name: Install Kerberos lib
+      run: apt-get install -y libkrb5-dev 
     - name: Run Python import ordering check
       run: ./build-support/python/isort-check
     - name: Run Python Checkstyle
