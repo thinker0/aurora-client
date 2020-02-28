@@ -1,0 +1,24 @@
+name: Aurora-scheduler Client
+
+on: [push]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python 2.7
+      uses: actions/setup-python@v1
+      with:
+        python-version: 2.7 
+    - name: Run Python import ordering check
+      run: ./build-support/python/isort-check
+    - name: Run Python Checkstyle
+      run: ./build-support/python/checkstyle-check
+    - name: Run Python tests
+      run: "./pants --cache-ignore test.pytest src/test/python:: -- -v"
+    - name: Ensure we can build python sdists (AURORA-1174)
+      run: ./build-support/release/make-python-sdists
+        
