@@ -17,9 +17,10 @@ import os
 THERMOS_SOURCE = 'thermos.py'
 OBSERVER_SOURCE = 'thermos_observer.py'
 
-python_library(
+python_source(
   name = '_tools',
   sources = ['**/*.py', '!thermos.py', '!thermos_observer.py'],
+  interpreter_constraints=['CPython==2.7.*', 'CPython>=3.5'],
   dependencies = [
     '3rdparty/python:CherryPy',
     '3rdparty/python:twitter.common.app',
@@ -33,7 +34,7 @@ python_library(
   ],
 )
 
-python_library(
+python_source(
   name = '_thermos',
   sources = [THERMOS_SOURCE],
   dependencies = [
@@ -50,7 +51,7 @@ python_binary(
   ]
 )
 
-python_library(
+python_source(
   name = '_thermos_observer',
   sources = [OBSERVER_SOURCE],
   dependencies = [
@@ -67,7 +68,7 @@ python_binary(
   ]
 )
 
-python_library(
+python_source(
   name = 'tools',
   dependencies = [
     ':_thermos',
@@ -76,7 +77,7 @@ python_library(
   ],
   provides = setup_py(
     name = 'apache.aurora.tools',
-    version = open(os.path.join(get_buildroot(), '.auroraversion')).read().strip().upper(),
+    version = open(os.path.join('.auroraversion')).read().strip().upper(),
   ).with_binaries({
     'thermos': ':thermos',
     'thermos_observer': ':thermos_observer',

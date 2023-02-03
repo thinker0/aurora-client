@@ -13,9 +13,10 @@
 #
 import os
 
-python_library(
+python_source(
   name = '_admin',
   sources = ['**/*.py'],
+  interpreter_constraints=['CPython==2.7.*', 'CPython>=3.5'],
   dependencies = [
     '3rdparty/python:twitter.common.app',
     '3rdparty/python:twitter.common.log',
@@ -35,14 +36,14 @@ python_binary(
   ]
 )
 
-python_library(
+python_source(
   name = 'admin',
   dependencies = [
     ':_admin',
   ],
   provides = setup_py(
     name = 'apache.aurora.admin',
-    version = open(os.path.join(get_buildroot(), '.auroraversion')).read().strip().upper(),
+    version = open(os.path.join('.auroraversion')).read().strip().upper(),
   ).with_binaries({
     'aurora_admin': ':aurora_admin',
   }),

@@ -15,6 +15,7 @@
 python_tests(
   name = 'client',
   sources = ['*.py'],
+  interpreter_constraints=['CPython==2.7.*', 'CPython>=3.5'],
   dependencies = [
     '3rdparty/python:mock',
     '3rdparty/python:mox',
@@ -25,7 +26,7 @@ python_tests(
   ],
 )
 
-python_library(
+python_source(
   name = 'lib_fake_scheduler_proxy',
   sources = ['fake_scheduler_proxy.py'],
   dependencies = [

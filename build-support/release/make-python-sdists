@@ -26,7 +26,7 @@
 #     aurora_admin --help
 set -o errexit
 
-# Use the convention of a python_library exporting a setup_py alongside each public target
+# Use the convention of a python_source exporting a setup_py alongside each public target
 # to generate the list of setup_pys our project provides.
 TARGETS=($(./pants filter --type=python_binary src/main:: | sed 's@:.*@@' | sort -u))
 
@@ -42,5 +42,5 @@ fi
 source build-support/make-python-sdists.venv/bin/activate
 
 for t in "${TARGETS[@]}"; do
-  ./pants setup-py --recursive $t
+  ./pants setup-py --recursive $t --no-verify-config --print-exception-stacktrace
 done

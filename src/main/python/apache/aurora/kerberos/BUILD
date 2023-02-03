@@ -11,20 +11,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import os
 
-python_library(
+python_source(
   name = 'kerberos_auth',
   sources = ['**/*.py'],
+  interpreter_constraints=['CPython==2.7.*', 'CPython>=3.5'],
   dependencies = [
     '3rdparty/python:requests-kerberos',
     'src/main/python/apache/aurora/common',
   ],
 )
 
-python_library(
+python_source(
   name = '_kerberos',
   sources = ['**/*.py'],
+  interpreter_constraints=['CPython==2.7.*', 'CPython>=3.5'],
   dependencies = [
     ':kerberos_auth',
     'src/main/python/apache/aurora/admin',
@@ -32,7 +33,7 @@ python_library(
   ],
 )
 
-python_binary(
+pex_binary(
   name = 'kaurora',
   entry_point = 'apache.aurora.client.cli.client:proxy_main',
   dependencies = [
@@ -40,7 +41,7 @@ python_binary(
   ],
 )
 
-python_binary(
+pex_binary(
   name = 'kaurora_admin',
   entry_point = 'apache.aurora.admin.aurora_admin:proxy_main',
   dependencies = [
@@ -48,17 +49,18 @@ python_binary(
   ],
 )
 
-python_library(
+python_source(
   name = 'kerberos',
   dependencies = [
     ':_kerberos',
   ],
   provides = setup_py(
     name = 'apache.aurora.kerberos',
-    version = open(os.path.join(get_buildroot(), '.auroraversion')).read().strip().upper(),
-  ).with_binaries({
-    # TODO(ksweeney): Reconsider these as separate binaries in favor of extras_require or plugins.
-    'kaurora': ':kaurora',
-    'kaurora_admin': ':kaurora_admin',
-  }),
+    version = open('.auroraversion').read().strip().upper(),
+  )
+#  .with_binaries({
+#    # TODO(ksweeney): Reconsider these as separate binaries in favor of extras_require or plugins.
+#    'kaurora': ':kaurora',
+#    'kaurora_admin': ':kaurora_admin',
+#  }),
 )

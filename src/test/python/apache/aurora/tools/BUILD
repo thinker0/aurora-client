@@ -15,6 +15,7 @@
 python_tests(
   name = 'tools',
   sources = ['*.py'],
+  interpreter_constraints=['CPython==2.7.*', 'CPython>=3.5'],
   dependencies = [
     '3rdparty/python:mock',
     'src/main/python/apache/aurora/tools:thermos_observer',

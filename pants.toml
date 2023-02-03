@@ -12,97 +12,112 @@
 # limitations under the License.
 
 [GLOBAL]
-pants_version = "1.26.0"
-
-plugins = [
-    'pantsbuild.pants.contrib.python.checks==%(pants_version)s',
+pants_version = "2.13.1"
+backend_packages = [
+  "pants.backend.shell",
+  "pants.backend.codegen.thrift.apache.python",
+  "pants.backend.python",
+  "pants.backend.python.lint.black",
+  "pants.backend.python.mixed_interpreter_constraints",
 ]
+
+[python-bootstrap]
+search_path = [
+    "<PATH>", "<PYENV>", "<PYENV_LOCAL>", "<ASDF>", "<ASDF_LOCAL>",
+    "/usr/local/bin/python3", "/usr/bin/python3"
+]
+[anonymous-telemetry]
+enabled = false
+repo_id = "<uuid>"
+
+[python]
+interpreter_constraints = ['CPython==2.7.*', 'CPython>=3.5']
 
 # allow imports in BUILD files to read .auroraversion
-build_file_imports = "warn"
+#build_file_imports = "warn"
 
 
-[thrift]
-version = "0.10.0"
+#[thrift]
+#version = "0.10.0"
 
 
-[python-setup]
-interpreter_constraints = ["CPython>=2.7,<3"]
-platforms = [
-  "current",
-]
-interpreter_search_paths = [
-  "<PATH>",
-  "<PYENV_LOCAL>",
-  "<PYENV>",
-  "<PEXRC>",
-]
+#[python-setup]
+#interpreter_constraints = ["CPython<3.8", "CPython>=3.6"]
+#platforms = [
+#  "current",
+#]
+#interpreter_search_paths = [
+#  "<PATH>",
+#  "<PYENV_LOCAL>",
+#  "<PYENV>",
+#  "<PEXRC>",
+#]
 
 
-[test.pytest]
-# AURORA-1972: As a workaround for spuriously failing tests, test different
-# targets in isolation
-fast = false
-
-# newest version we can use before upgrading to python3
-[pytest]
-version = "pytest>=4.6.6,<4.7"
-pytest_plugins = [
-  "setuptools<45; python_version<'3'",
-  "configparser==4.0.2; python_version<'3'",
-  "zipp<2; python_version<'3'",
-  "importlib-metadata<1.6; python_version<'3'",
-  "pytest-timeout>=1.3.3,<1.4; python_version<'3'",
-  "pytest-cov>=2.8.1,<3; python_version<'3'",
-  "unittest2>=1.1.0; python_version<'3'",
-  "more-itertools<6.0.0; python_version<'3'",
-  "setuptools; python_version>='3.6'",
-  "configparser==4.0.2; python_version>='3.6'",
-  "zipp<2; python_version>='3'",
-  "importlib-metadata<1.6; python_version>='3.6'",
-  "pytest-timeout>=1.3.3,<1.4; python_version>='3.6'",
-  "pytest-cov>=2.8.1,<3; python_version>='3.6'",
-  "unittest2>=1.1.0; python_version>='3.6'",
-  "more-itertools<6.0.0; python_version>='3.6'",
-]
+#[test.pytest]
+## AURORA-1972: As a workaround for spuriously failing tests, test different
+## targets in isolation
+#fast = false
+#
+## newest version we can use before upgrading to python3
+#[pytest]
+#version = "pytest>=4.6.6,<4.7"
+#pytest_plugins = [
+#  "setuptools<45; python_version<'3'",
+#  "configparser==4.0.2; python_version<'3'",
+#  "zipp<2; python_version<'3'",
+#  "importlib-metadata<1.6; python_version<'3'",
+#  "pytest-timeout>=1.3.3,<1.4; python_version<'3'",
+#  "pytest-cov>=2.8.1,<3; python_version<'3'",
+#  "unittest2>=1.1.0; python_version<'3'",
+#  "more-itertools<6.0.0; python_version<'3'",
+#  "setuptools; python_version>='3.6'",
+#  "configparser==4.0.2; python_version>='3.6'",
+#  "zipp<2; python_version>='3'",
+#  "importlib-metadata<1.6; python_version>='3.6'",
+#  "pytest-timeout>=1.3.3,<1.4; python_version>='3.6'",
+#  "pytest-cov>=2.8.1,<3; python_version>='3.6'",
+#  "unittest2>=1.1.0; python_version>='3.6'",
+#  "more-itertools<6.0.0; python_version>='3.6'",
+#]
 
 # We have some modules that have side-effects upon import, including starting a repl, so we can't
 # use python-eval to validate our BUILD deps currently.
-[python-eval]
-skip = true
+#[python-eval]
+#skip = true
 
 
 # We use isort for this.
-[pycheck-import-order]
-skip = true
+#[pycheck-import-order]
+#skip = true
 
 
-[pycheck-pycodestyle]
-# Code reference is here: http://pep8.readthedocs.org/en/latest/intro.html#error-codes
-ignore = [
-  # Aurora custom ignores:
-  'E114',  # indentation is not a multiple of four (comment)
-  'E116',  # unexpected indentation (comment)
-  'E122',  # continuation line missing indentation or outdented
-  'E126',  # continuation line over-indented for hanging indent
-  'E129',  # visually indented line with same indent as next logical line
-  'E131',  # continuation line unaligned for hanging indent
-  'E306',  # blank line before a nested definition
-  'E731',  # do not assign a lambda expression, use a def
-  'W503',  # line break before binary operator
-  'W504',  # line break after binary operator
-
-  # These are a subset of the standard ignores pre-packaged for pycheck-pep8/pep8, but we need to
-  # repeat here since we add our own above:
-  'E111',  # indentation is not a multiple of four
-  'E121',  # continuation line under-indented for hanging indent
-  'E125',  # continuation line with same indent as next logical line
-  'E127',  # continuation line over-indented for visual indent
-  'E128',  # continuation line under-indented for visual indent
-  'E301',  # expected 1 blank line, found 0  # We allow consecutive exception declarations.
-  'E401',  # multiple imports on one line
-  'E701',  # multiple statements on one line (colon)  # We allow: `class Exc(Exception): pass`.
-]
+#[pycheck-pycodestyle]
+## Code reference is here: http://pep8.readthedocs.org/en/latest/intro.html#error-codes
+#ignore = [
+#  # Aurora custom ignores:
+#  'E114',  # indentation is not a multiple of four (comment)
+#  'E116',  # unexpected indentation (comment)
+#  'E122',  # continuation line missing indentation or outdented
+#  'E126',  # continuation line over-indented for hanging indent
+#  'E129',  # visually indented line with same indent as next logical line
+#  'E131',  # continuation line unaligned for hanging indent
+#  'E306',  # blank line before a nested definition
+#  'E731',  # do not assign a lambda expression, use a def
+#  'W503',  # line break before binary operator
+#  'W504',  # line break after binary operator
+#
+#  # These are a subset of the standard ignores pre-packaged for pycheck-pep8/pep8, but we need to
+#  # repeat here since we add our own above:
+#  'E111',  # indentation is not a multiple of four
+#  'E121',  # continuation line under-indented for hanging indent
+#  'E125',  # continuation line with same indent as next logical line
+#  'E127',  # continuation line over-indented for visual indent
+#  'E128',  # continuation line under-indented for visual indent
+#  'E301',  # expected 1 blank line, found 0  # We allow consecutive exception declarations.
+#  'E401',  # multiple imports on one line
+#  'E701',  # multiple statements on one line (colon)  # We allow: `class Exc(Exception): pass`.
+#]
 
 
 # We disable the class factoring check since it flags calls to superclass constructors from nested
@@ -110,5 +125,5 @@ ignore = [
 # The error looks like so:
 # T800 Instead of Context.CommandError use self.CommandError or cls.CommandError with
 #      instancemethods and classmethods respectively.
-[pycheck-class-factoring]
-skip = true
+#[pycheck-class-factoring]
+#skip = true

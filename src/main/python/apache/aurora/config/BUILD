@@ -14,9 +14,10 @@
 import os
 
 
-python_library(
+python_source(
   name = 'config',
   sources = ['**/*.py'],
+  interpreter_constraints=['CPython==2.7.*', 'CPython>=3.5'],
   dependencies = [
     '3rdparty/python:enum34',
     '3rdparty/python:pystachio',
@@ -26,7 +27,7 @@ python_library(
   ],
   provides = setup_py(
     name = 'apache.aurora.config',
-    version = open(os.path.join(get_buildroot(), '.auroraversion')).read().strip().upper(),
+    version = open(os.path.join('.auroraversion')).read().strip().upper(),
     description = 'Aurora/Thermos Pystachio schemas for describing job configurations.',
     license = 'Apache License, Version 2.0',
   )

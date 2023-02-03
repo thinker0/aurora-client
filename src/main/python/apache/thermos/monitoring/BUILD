@@ -15,7 +15,7 @@
 import os
 
 
-python_library(
+python_source(
   name = 'monitoring',
   sources = ['**/*.py'],
   dependencies = [
@@ -34,7 +34,7 @@ python_library(
   ],
   provides = setup_py(
     name = 'apache.thermos.monitoring',
-    version = open(os.path.join(get_buildroot(), '.auroraversion')).read().strip().upper(),
+    version = open(os.path.join('.auroraversion')).read().strip().upper(),
     description = 'Thermos monitoring library.',
   )
 )

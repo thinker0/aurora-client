@@ -14,9 +14,10 @@
 import os
 
 
-python_library(
+python_source(
   name = '_client',
   sources = ['**/*.py'],
+  interpreter_constraints=['CPython==2.7.*', 'CPython>=3.5'],
   dependencies = [
     '3rdparty/python:certifi',
     '3rdparty/python:chardet',
@@ -48,14 +49,14 @@ python_binary(
   ],
 )
 
-python_library(
+python_source(
   name = 'client',
   dependencies = [
     ':_client',
   ],
   provides = setup_py(
     name = 'apache.aurora.client',
-    version = open(os.path.join(get_buildroot(), '.auroraversion')).read().strip().upper(),
+    version = open(os.path.join('.auroraversion')).read().strip().upper(),
   ).with_binaries({
     'aurora': ':aurora',
   }),

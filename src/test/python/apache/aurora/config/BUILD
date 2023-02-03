@@ -15,6 +15,7 @@
 python_tests(
   name = 'config',
   sources = ['*py'],
+  interpreter_constraints=['CPython==2.7.*', 'CPython>=3.5'],
   dependencies = [
     '3rdparty/python:mock',
     '3rdparty/python:requests-mock',

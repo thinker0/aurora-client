@@ -15,9 +15,10 @@
 import os
 
 
-python_library(
+python_source(
   name = '_executor',
   sources = ['**/*.py'],
+  interpreter_constraints=['CPython==2.7.*', 'CPython>=3.5'],
   dependencies = [
     '3rdparty/python:mesos.interface',
     '3rdparty/python:pex',
@@ -61,14 +62,14 @@ python_binary(
   tags=['mesos-native']
 )
 
-python_library(
+python_source(
   name = 'executor',
   dependencies = [
     ':_executor',
   ],
   provides = setup_py(
     name = 'apache.aurora.executor',
-    version = open(os.path.join(get_buildroot(), '.auroraversion')).read().strip().upper(),
+    version = open(os.path.join('.auroraversion')).read().strip().upper(),
   ).with_binaries(
     thermos_executor = ':thermos_executor',
   )

@@ -12,7 +12,8 @@
 #
 
 # NB: mesos requirements are defined in our sibling BUILD file.
-
+mesos.interface==1.11.0
+mesos-executor==1.0.0
 bottle==0.11.6
 certifi==2017.11.5
 chardet==3.0.4
