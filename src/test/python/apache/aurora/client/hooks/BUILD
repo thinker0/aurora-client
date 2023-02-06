@@ -15,7 +15,7 @@
 python_tests(name = 'hooks',
   sources = ['*.py'],
   dependencies = [
-    '3rdparty/python:mock',
+    '//:3rdparty#mock',
     'src/main/python/apache/aurora/common',
     'src/main/python/apache/aurora/client',
   ],

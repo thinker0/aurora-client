@@ -28,7 +28,7 @@ set -o errexit
 
 # Use the convention of a python_source exporting a setup_py alongside each public target
 # to generate the list of setup_pys our project provides.
-TARGETS=($(./pants filter --type=python_binary src/main:: | sed 's@:.*@@' | sort -u))
+TARGETS=($(./pants filter --type=pex_binary src/main:: | sed 's@:.*@@' | sort -u))
 
 cd "`git rev-parse --show-toplevel`"
 # Run in a virtualenv so that we use a consistent version of setuptools to generate the sdist.
@@ -36,11 +36,16 @@ cd "`git rev-parse --show-toplevel`"
 # buggy, and produces a broken apache.thermos.observer.
 # TODO(ksweeney): Remove this indirection when pants supports this natively.
 if [[ ! -f build-support/make-python-sdists.venv/BOOTSTRAPPED ]]; then
-  ./build-support/virtualenv build-support/make-python-sdists.venv
+  /build-support/virtualenv build-support/make-python-sdists.venv
+  # virtualenv build-support/make-python-sdists.venv
   touch build-support/make-python-sdists.venv/BOOTSTRAPPED
 fi
 source build-support/make-python-sdists.venv/bin/activate
 
 for t in "${TARGETS[@]}"; do
-  ./pants setup-py --recursive $t --no-verify-config --print-exception-stacktrace
+  echo "Building sdist for $t"
+  ./pants package --recursive $t --no-verify-config --print-exception-stacktrace
 done
+
+./pants package src/main/python/apache/aurora/kerberos:kaurora
+./pants package src/main/python/apache/aurora/kerberos:kaurora_admin

@@ -11,26 +11,33 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import os
 
 
-python_source(
-  name = 'cli',
+python_sources(
+  name = '_cli',
   sources = ['**/*.py'],
+  interpreter_constraints = ['CPython==2.7.*', 'CPython>=3.5'],
   dependencies = [
-    '3rdparty/python:pystachio',
-    '3rdparty/python:twitter.common.app',
-    '3rdparty/python:twitter.common.dirutil',
-    '3rdparty/python:twitter.common.log',
-    '3rdparty/python:twitter.common.recordio',
+    '//:3rdparty#pystachio',
+    '//:3rdparty#twitter.common.app',
+    '//:3rdparty#twitter.common.dirutil',
+    '//:3rdparty#twitter.common.log',
+    '//:3rdparty#twitter.common.recordio',
     'api/src/main/thrift/org/apache/thermos',
     'src/main/python/apache/thermos/common',
     'src/main/python/apache/thermos/config',
     'src/main/python/apache/thermos/core',
     'src/main/python/apache/thermos/monitoring',
   ],
-  provides = setup_py(
+)
+
+python_distribution(
+  name = 'cli',
+  dependencies = [
+    ':_cli',
+  ],
+  provides = python_artifact(
     name = 'apache.thermos.cli',
-    version = open(os.path.join('.auroraversion')).read().strip().upper(),
+    version = open('.auroraversion').read().strip().upper(),
   )
 )

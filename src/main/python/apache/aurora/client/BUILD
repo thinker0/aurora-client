@@ -11,27 +11,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import os
 
 
-python_source(
+python_sources(
   name = '_client',
   sources = ['**/*.py'],
-  interpreter_constraints=['CPython==2.7.*', 'CPython>=3.5'],
+  interpreter_constraints = ['CPython==2.7.*', 'CPython>=3.5'],
   dependencies = [
-    '3rdparty/python:certifi',
-    '3rdparty/python:chardet',
-    '3rdparty/python:idna',
-    '3rdparty/python:pex',
-    '3rdparty/python:pystachio',
-    '3rdparty/python:requests',
-    '3rdparty/python:twitter.common.app',
-    '3rdparty/python:twitter.common.decorators',
-    '3rdparty/python:twitter.common.lang',
-    '3rdparty/python:twitter.common.log',
-    '3rdparty/python:twitter.common.quantity',
-    '3rdparty/python:twitter.common.zookeeper',
-    '3rdparty/python:urllib3',
+    '//:3rdparty#certifi',
+    '//:3rdparty#chardet',
+    '//:3rdparty#idna',
+    '//:3rdparty#pex',
+    '//:3rdparty#pystachio',
+    '//:3rdparty#requests',
+    '//:3rdparty#twitter.common.app',
+    '//:3rdparty#twitter.common.decorators',
+    '//:3rdparty#twitter.common.lang',
+    '//:3rdparty#twitter.common.log',
+    '//:3rdparty#twitter.common.quantity',
+    '//:3rdparty#twitter.common.zookeeper',
+    '//:3rdparty#urllib3',
     'api/src/main/thrift/org/apache/aurora/gen',
     'src/main/python/apache/aurora/common',
     'src/main/python/apache/aurora/client/cli:auroraversion',
@@ -41,7 +40,7 @@ python_source(
   ],
 )
 
-python_binary(
+pex_binary(
   name='aurora',
   entry_point = 'apache.aurora.client.cli.client:proxy_main',
   dependencies = [
@@ -49,15 +48,14 @@ python_binary(
   ],
 )
 
-python_source(
+python_distribution(
   name = 'client',
   dependencies = [
     ':_client',
+    ':aurora',
   ],
-  provides = setup_py(
+  provides = python_artifact(
     name = 'apache.aurora.client',
-    version = open(os.path.join('.auroraversion')).read().strip().upper(),
-  ).with_binaries({
-    'aurora': ':aurora',
-  }),
+    version = open('.auroraversion').read().strip().upper(),
+  ),
 )

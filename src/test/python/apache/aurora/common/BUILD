@@ -15,11 +15,11 @@
 python_tests(
   name = 'common',
   sources = ['*.py'],
-  interpreter_constraints=['CPython==2.7.*', 'CPython>=3.5'],
+  interpreter_constraints = ['CPython==2.7.*', 'CPython>=3.5'],
   dependencies = [
-    '3rdparty/python:mock',
-    '3rdparty/python:twitter.common.contextutil',
-    '3rdparty/python:twitter.common.options',
+    '//:3rdparty#mock',
+    '//:3rdparty#twitter.common.contextutil',
+    '//:3rdparty#twitter.common.options',
     'api/src/main/thrift/org/apache/aurora/gen',
     'src/main/python/apache/aurora/common',
   ]

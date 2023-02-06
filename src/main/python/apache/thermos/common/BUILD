@@ -12,22 +12,29 @@
 # limitations under the License.
 #
 
-import os
 
-
-python_source(
-  name = 'common',
+python_sources(
+  name = '_common',
   sources = ['**/*.py'],
+  interpreter_constraints = ['CPython==2.7.*', 'CPython>=3.5'],
   dependencies = [
-    '3rdparty/python:pystachio',
-    '3rdparty/python:twitter.common.log',
-    '3rdparty/python:twitter.common.recordio',
+    '//:3rdparty#pystachio',
+    '//:3rdparty#twitter.common.log',
+    '//:3rdparty#twitter.common.recordio',
     'api/src/main/thrift/org/apache/aurora/gen',
     'api/src/main/thrift/org/apache/thermos'
   ],
-  provides = setup_py(
+)
+
+
+python_distribution(
+  name = 'common',
+  dependencies = [
+    ':_common'
+  ],
+  provides = python_artifact(
     name = 'apache.thermos.common',
-    version = open(os.path.join('.auroraversion')).read().strip().upper(),
+    version = open('.auroraversion').read().strip().upper(),
     description = 'Thermos common libraries.',
   )
 )

@@ -15,12 +15,12 @@
 python_tests(
   name = 'admin',
   sources = ['*.py'],
-  interpreter_constraints=['CPython==2.7.*', 'CPython>=3.5'],
+  interpreter_constraints = ['CPython==2.7.*', 'CPython>=3.5'],
   dependencies = [
-    '3rdparty/python:mock',
-    '3rdparty/python:twitter.common.contextutil',
-    '3rdparty/python:twitter.common.log',
-    '3rdparty/python:twitter.common.quantity',
+    '//:3rdparty#mock',
+    '//:3rdparty#twitter.common.contextutil',
+    '//:3rdparty#twitter.common.log',
+    '//:3rdparty#twitter.common.quantity',
     'api/src/main/thrift/org/apache/aurora/gen',
     'src/main/python/apache/aurora/admin',
     'src/main/python/apache/aurora/client',

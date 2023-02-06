@@ -11,28 +11,7 @@
 # limitations under the License.
 #
 
-MESOS_REV = "1.11.0"
+# MESOS_REV = "1.11.0"
+# The Mesos version is used to determine the Mesos version to download.
 
-python_requirement_library(
-    name = "mesos.interface",
-    requirements = [
-        python_requirement(
-            requirement = "mesos.interface==%s" % MESOS_REV,
-        ),
-    ],
-)
-
-python_requirement_library(
-    name = "mesos.executor",
-    requirements = [
-        python_requirement(
-            # This native executor egg must currently be fetched out-of-band.
-            # See build-support/packer/build.sh which fetches to third_party/ and uses mesos.executor to
-            # enable a running cluster inside the root Vagrant machine.
-            repository = "%s/third_party" % get_buildroot(),
-            requirement = "mesos.executor==%s" % MESOS_REV,
-        ),
-    ],
-)
-
-python_requirements()
+python_requirements(name="3rdparty", source="requirements.txt")

@@ -11,23 +11,28 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import os
-
-
-python_source(
-  name = 'config',
+python_sources(
+  name = '_config',
   sources = ['**/*.py'],
-  interpreter_constraints=['CPython==2.7.*', 'CPython>=3.5'],
   dependencies = [
-    '3rdparty/python:enum34',
-    '3rdparty/python:pystachio',
-    '3rdparty/python:twitter.common.lang',
+    '//:3rdparty#enum34',
+    '//:3rdparty#pystachio',
+    '//:3rdparty#twitter.common.lang',
     'api/src/main/thrift/org/apache/aurora/gen',
     'src/main/python/apache/thermos/config',
+    'src/main/python/apache/aurora/config',
   ],
-  provides = setup_py(
+)
+
+python_distribution(
+  name = 'config',
+  interpreter_constraints = ['CPython==2.7.*', 'CPython>=3.5'],
+  dependencies = [
+    ':_config',
+  ],
+  provides = python_artifact(
     name = 'apache.aurora.config',
-    version = open(os.path.join('.auroraversion')).read().strip().upper(),
+    version = open('.auroraversion').read().strip().upper(),
     description = 'Aurora/Thermos Pystachio schemas for describing job configurations.',
     license = 'Apache License, Version 2.0',
   )

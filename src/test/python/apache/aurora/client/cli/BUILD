@@ -16,8 +16,8 @@ python_tests(
   name = 'cli',
   sources = ['*.py'],
   dependencies = [
-    '3rdparty/python:mock',
-    '3rdparty/python:twitter.common.contextutil',
+    '//:3rdparty#mock',
+    '//:3rdparty#twitter.common.contextutil',
     'src/main/python/apache/aurora/client',
     'src/test/python/apache/aurora',
   ]

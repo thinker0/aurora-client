@@ -11,16 +11,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import os
 
-python_source(
+python_sources(
   name = '_admin',
   sources = ['**/*.py'],
-  interpreter_constraints=['CPython==2.7.*', 'CPython>=3.5'],
+  interpreter_constraints = ['CPython==2.7.*', 'CPython>=3.5'],
   dependencies = [
-    '3rdparty/python:twitter.common.app',
-    '3rdparty/python:twitter.common.log',
-    '3rdparty/python:twitter.common.quantity',
+    '//:3rdparty#twitter.common.app',
+    '//:3rdparty#twitter.common.log',
+    '//:3rdparty#twitter.common.quantity',
     'api/src/main/thrift/org/apache/aurora/gen',
     'src/main/python/apache/aurora/client',
     'src/main/python/apache/aurora/common',
@@ -28,7 +27,7 @@ python_source(
   ]
 )
 
-python_binary(
+pex_binary(
   name = 'aurora_admin',
   entry_point = 'apache.aurora.admin.aurora_admin:proxy_main',
   dependencies = [
@@ -36,15 +35,14 @@ python_binary(
   ]
 )
 
-python_source(
+python_distribution(
   name = 'admin',
   dependencies = [
     ':_admin',
+    ':aurora_admin',
   ],
-  provides = setup_py(
+  provides = python_artifact(
     name = 'apache.aurora.admin',
-    version = open(os.path.join('.auroraversion')).read().strip().upper(),
-  ).with_binaries({
-    'aurora_admin': ':aurora_admin',
-  }),
+    version = open('.auroraversion').read().strip().upper(),
+  ),
 )

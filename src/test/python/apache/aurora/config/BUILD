@@ -15,17 +15,17 @@
 python_tests(
   name = 'config',
   sources = ['*py'],
-  interpreter_constraints=['CPython==2.7.*', 'CPython>=3.5'],
+  interpreter_constraints = ['CPython==2.7.*', 'CPython>=3.5'],
   dependencies = [
-    '3rdparty/python:mock',
-    '3rdparty/python:requests-mock',
-    '3rdparty/python:twitter.common.contextutil',
+    '//:3rdparty#mock',
+    '//:3rdparty#requests-mock',
+    '//:3rdparty#twitter.common.contextutil',
     'api/src/main/thrift/org/apache/aurora/gen',
     'src/main/python/apache/aurora/config',
     'src/main/python/apache/aurora/client',
   ],
-  coverage = [
-    'apache.aurora.config',
-    'apache.thermos.config'
-  ]
+  #coverage = [
+  #  'apache.aurora.config',
+  #  'apache.thermos.config'
+  #]
 )

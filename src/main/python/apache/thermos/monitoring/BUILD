@@ -12,29 +12,36 @@
 # limitations under the License.
 #
 
-import os
 
-
-python_source(
-  name = 'monitoring',
+python_sources(
+  name = '_monitoring',
   sources = ['**/*.py'],
+  interpreter_constraints = ['CPython==2.7.*', 'CPython>=3.5'],
   dependencies = [
-    '3rdparty/python:jmespath',
-    '3rdparty/python:psutil',
-    '3rdparty/python:twitter.common.collections',
-    '3rdparty/python:twitter.common.concurrent',
-    '3rdparty/python:twitter.common.dirutil',
-    '3rdparty/python:twitter.common.exceptions',
-    '3rdparty/python:twitter.common.lang',
-    '3rdparty/python:twitter.common.log',
-    '3rdparty/python:twitter.common.quantity',
-    '3rdparty/python:twitter.common.recordio',
+    '//:3rdparty#jmespath',
+    '//:3rdparty#psutil',
+    '//:3rdparty#twitter.common.collections',
+    '//:3rdparty#twitter.common.concurrent',
+    '//:3rdparty#twitter.common.dirutil',
+    '//:3rdparty#twitter.common.exceptions',
+    '//:3rdparty#twitter.common.lang',
+    '//:3rdparty#twitter.common.log',
+    '//:3rdparty#twitter.common.quantity',
+    '//:3rdparty#twitter.common.recordio',
     'api/src/main/thrift/org/apache/thermos',
     'src/main/python/apache/thermos/common',
   ],
-  provides = setup_py(
+)
+
+python_distribution(
+  name = 'monitoring',
+  dependencies = [
+    ':_monitoring',
+  ],
+  provides = python_artifact(
     name = 'apache.thermos.monitoring',
-    version = open(os.path.join('.auroraversion')).read().strip().upper(),
+    version = open('.auroraversion').read().strip().upper(),
     description = 'Thermos monitoring library.',
+    wheel_config_settings={"--global-option": ["--python-tag", "py37.py38.py39"]},
   )
 )

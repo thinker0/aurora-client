@@ -15,18 +15,18 @@
 python_tests(
   name = 'client',
   sources = ['*.py'],
-  interpreter_constraints=['CPython==2.7.*', 'CPython>=3.5'],
+  interpreter_constraints = ['CPython==2.7.*', 'CPython>=3.5'],
   dependencies = [
-    '3rdparty/python:mock',
-    '3rdparty/python:mox',
-    '3rdparty/python:pystachio',
-    '3rdparty/python:twitter.common.contextutil',
+    '//:3rdparty#mock',
+    '//:3rdparty#mox',
+    '//:3rdparty#pystachio',
+    '//:3rdparty#twitter.common.contextutil',
     'src/main/python/apache/aurora/client',
     'src/main/python/apache/aurora/config',
   ],
 )
 
-python_source(
+python_sources(
   name = 'lib_fake_scheduler_proxy',
   sources = ['fake_scheduler_proxy.py'],
   dependencies = [

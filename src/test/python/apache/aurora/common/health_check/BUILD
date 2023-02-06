@@ -16,8 +16,8 @@ python_tests(
   name = 'health_check',
   sources = ['*py'],
   dependencies = [
-    '3rdparty/python:mock',
-    '3rdparty/python:mox',
+    '//:3rdparty#mock',
+    '//:3rdparty#mox',
     'src/main/python/apache/aurora/common',
   ]
 )

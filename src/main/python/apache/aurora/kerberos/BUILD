@@ -12,20 +12,20 @@
 # limitations under the License.
 #
 
-python_source(
+python_sources(
   name = 'kerberos_auth',
   sources = ['**/*.py'],
-  interpreter_constraints=['CPython==2.7.*', 'CPython>=3.5'],
+  interpreter_constraints = ['CPython==2.7.*', 'CPython>=3.5'],
   dependencies = [
-    '3rdparty/python:requests-kerberos',
+    '//:3rdparty#requests-kerberos',
     'src/main/python/apache/aurora/common',
   ],
 )
 
-python_source(
+python_sources(
   name = '_kerberos',
   sources = ['**/*.py'],
-  interpreter_constraints=['CPython==2.7.*', 'CPython>=3.5'],
+  interpreter_constraints = ['CPython==2.7.*', 'CPython>=3.5'],
   dependencies = [
     ':kerberos_auth',
     'src/main/python/apache/aurora/admin',
@@ -49,12 +49,13 @@ pex_binary(
   ],
 )
 
-python_source(
+python_distribution(
   name = 'kerberos',
   dependencies = [
     ':_kerberos',
+    ':kaurora_admin',
   ],
-  provides = setup_py(
+  provides = python_artifact(
     name = 'apache.aurora.kerberos',
     version = open('.auroraversion').read().strip().upper(),
   )

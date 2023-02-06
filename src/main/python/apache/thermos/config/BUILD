@@ -12,20 +12,26 @@
 # limitations under the License.
 #
 
-import os
 
-
-python_source(
-  name = 'config',
+python_sources(
+  name = '_config',
   sources = ['**/*.py'],
+  interpreter_constraints = ['CPython==2.7.*', 'CPython>=3.5'],
   dependencies = [
-    '3rdparty/python:pystachio',
-    '3rdparty/python:twitter.common.lang',
+    '//:3rdparty#pystachio',
+    '//:3rdparty#twitter.common.lang',
     'src/main/python/apache/thermos/common',
   ],
-  provides = setup_py(
+)
+
+python_distribution(
+  name = 'config',
+  dependencies = [
+    ':_config',
+  ],
+  provides = python_artifact(
     name = 'apache.thermos.config',
-    version = open(os.path.join('.auroraversion')).read().strip().upper(),
+    version = open('.auroraversion').read().strip().upper(),
     description = 'Thermos configuration schema and loader.',
   )
 )

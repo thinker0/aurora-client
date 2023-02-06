@@ -12,32 +12,36 @@
 # limitations under the License.
 #
 
-python_source(
+
+python_sources(
+  name = '_common',
+  sources = ['*.py'],
+  interpreter_constraints = ['CPython==2.7.*', 'CPython>=3.5'],
+)
+
+python_distribution(
     name = "common",
     dependencies = [
-        "3rdparty/python:certifi",
-        "3rdparty/python:chardet",
-        "3rdparty/python:idna",
-        "3rdparty/python:pex",
-        "3rdparty/python:pystachio",
-        "3rdparty/python:requests",
-        "3rdparty/python:subprocess32",
-        "3rdparty/python:thrift",
-        "3rdparty/python:twitter.common.collections",
-        "3rdparty/python:twitter.common.lang",
-        "3rdparty/python:twitter.common.log",
-        "3rdparty/python:urllib3",
+        "//:3rdparty#certifi",
+        "//:3rdparty#chardet",
+        "//:3rdparty#idna",
+        "//:3rdparty#pex",
+        "//:3rdparty#pystachio",
+        "//:3rdparty#requests",
+        "//:3rdparty#subprocess32",
+        "//:3rdparty#thrift",
+        "//:3rdparty#twitter.common.collections",
+        "//:3rdparty#twitter.common.lang",
+        "//:3rdparty#twitter.common.log",
+        "//:3rdparty#urllib3",
         "api/src/main/thrift/org/apache/aurora/gen",
+        'src/main/python/apache/aurora/common',
     ],
-    interpreter_constraints = [
-        "CPython==2.7.*",
-        "CPython>=3.5",
-    ],
-    provides = setup_py(
+    interpreter_constraints = ['CPython==2.7.*', 'CPython>=3.5'],
+    provides = python_artifact(
         name = "apache.aurora.common",
         description = "Aurora common libraries.",
         license = "Apache License, Version 2.0",
-        version = open(os.path.join(".auroraversion")).read().strip().upper(),
+        version = open(".auroraversion").read().strip().upper(),
     ),
-    sources = ["**/*.py"],
 )

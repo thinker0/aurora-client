@@ -12,7 +12,7 @@
 # limitations under the License.
 
 [GLOBAL]
-pants_version = "2.13.1"
+pants_version = "2.14.1"
 backend_packages = [
   "pants.backend.shell",
   "pants.backend.codegen.thrift.apache.python",

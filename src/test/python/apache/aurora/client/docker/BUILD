@@ -16,9 +16,9 @@ python_tests(
   name = 'docker',
   sources = ['*py'],
   dependencies = [
-    '3rdparty/python:requests',
-    '3rdparty/python:requests-mock',
-    '3rdparty/python:twitter.common.contextutil',
+    '//:3rdparty#requests',
+    '//:3rdparty#requests-mock',
+    '//:3rdparty#twitter.common.contextutil',
     'src/main/python/apache/aurora/client'
   ]
 )

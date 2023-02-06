@@ -12,27 +12,33 @@
 # limitations under the License.
 #
 
-import os
 
-
-python_source(
-  name = 'core',
+python_sources(
+  name = '_core',
   sources = ['**/*.py'],
+  interpreter_constraints = ['CPython==2.7.*', 'CPython>=3.5'],
   dependencies = [
-    '3rdparty/python:psutil',
-    '3rdparty/python:twitter.common.dirutil',
-    '3rdparty/python:twitter.common.lang',
-    '3rdparty/python:twitter.common.log',
-    '3rdparty/python:twitter.common.quantity',
-    '3rdparty/python:twitter.common.recordio',
+    '//:3rdparty#psutil',
+    '//:3rdparty#twitter.common.dirutil',
+    '//:3rdparty#twitter.common.lang',
+    '//:3rdparty#twitter.common.log',
+    '//:3rdparty#twitter.common.quantity',
+    '//:3rdparty#twitter.common.recordio',
     'api/src/main/thrift/org/apache/aurora/gen',
     'api/src/main/thrift/org/apache/thermos',
     'src/main/python/apache/thermos/common',
     'src/main/python/apache/thermos/config',
   ],
-  provides = setup_py(
+)
+
+python_distribution(
+  name = 'core',
+  dependencies = [
+    ':_core',
+  ],
+  provides = python_artifact(
     name = 'apache.thermos.core',
-    version = open(os.path.join('.auroraversion')).read().strip().upper(),
+    version = open('.auroraversion').read().strip().upper(),
     description = 'The Thermos core state machine.',
   )
 )

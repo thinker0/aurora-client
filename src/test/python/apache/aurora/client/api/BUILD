@@ -16,8 +16,8 @@ python_tests(
   name = 'api',
   sources = ['*.py'],
   dependencies = [
-    '3rdparty/python:mock',
-    '3rdparty/python:mox',
+    '//:3rdparty#mock',
+    '//:3rdparty#mox',
     'api/src/main/thrift/org/apache/aurora/gen',
     'src/main/python/apache/aurora/client',
     'src/main/python/apache/aurora/common',
