@@ -38,4 +38,8 @@
 /ui/dist/
 /ui/node_modules/
 /ui/out/
-src/main/resources/scheduler/assets/js/*.ttf
+tmp/
+*.tgz
+*.tar.gz
+apache-aurora-*
+aurora-scheduler-*

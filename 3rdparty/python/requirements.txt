@@ -52,3 +52,4 @@ twitter.common.string==0.3.9
 twitter.common.testing==0.3.9
 twitter.common.zookeeper==0.3.9
 urllib3==1.22
+MarkupSafe==1.1.1

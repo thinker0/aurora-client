@@ -1,0 +1,121 @@
+#!/usr/bin/env bash
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Wrapper for thrift that attempts to use the system thrift if it's of the expected version,
+# otherwise it bootstraps a new one.
+set -ex -u
+
+if [[ $# -lt 1 ]]; then
+  cat <<EOF
+Usage: thriftw EXPECTED_THRIFT_VERSION THRIFT_ARGS...
+
+Run the thrift compiler at EXPECTED_THRIFT_VERSION with THRIFT_ARGS, bootstrapping if necessary.
+EOF
+fi
+expected_version=$1
+shift
+
+HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+
+function check_thrift_version() {
+  local readonly thrift="$1"
+
+  [[ $("${thrift}" --version) = "Thrift version ${expected_version}" ]]
+}
+
+function check_thrift_gen_lang() {
+  local readonly thrift="$1"
+  local readonly gen_identifier="$2"
+
+  "${thrift}" -help 2>&1 | grep -q "${gen_identifier}:"
+}
+
+function compatible_thrift() {
+  local readonly thrift="$1"
+
+  [[ -x "${thrift}" ]] && \
+  check_thrift_version "${thrift}" && \
+  check_thrift_gen_lang "${thrift}" "java (Java)" && \
+  check_thrift_gen_lang "${thrift}" "js (Javascript)" && \
+  check_thrift_gen_lang "${thrift}" "html (HTML)" && \
+  check_thrift_gen_lang "${thrift}" "py (Python)"
+}
+
+function compatible_system_thrift() {
+  if compatible_thrift "${HERE}/thrift"; then
+    echo "${HERE}/thrift"
+  else
+    which -a thrift 2> /dev/null | while read thrift; do
+      if compatible_thrift "${thrift}"; then
+         echo "${thrift}"
+         return
+      fi
+    done
+  fi
+}
+
+function run_pants() {
+  pushd "${HERE}/../.." &> /dev/null
+  ./pants --no-colors --no-lock "$@"
+  popd &> /dev/null
+}
+
+function get_pants_option() {
+  local readonly scope="$1"
+  local readonly name="$2"
+
+  run_pants options --output-format=json --scope=${scope} --name=${name} | python2 <(cat << EOF
+from __future__ import print_function
+
+import json
+import sys
+
+
+object = json.load(sys.stdin)
+key = "${name}" if "${scope}" == "GLOBAL" else "${scope}.${name}"
+value = object[key]["value"]
+print(value)
+EOF
+)
+}
+
+thrift="$(compatible_system_thrift)"
+if [[ -z "${thrift}" ]]; then
+  readonly pants_thrift_version="$(get_pants_option thrift version)"
+  if [[ "${expected_version}" != "${pants_thrift_version}" ]]; then
+    echo "Pants thrift version ${pants_thrift_version} does not match expected version ${expected_version}!"
+    exit 1
+  fi
+
+  # Bootstrap thrift compiler with pants
+  run_pants --quiet gen --cache-ignore api/src/main/thrift/org/apache/aurora/gen::
+
+  # Without reverse engineering pants custom os-specific path names,
+  # find a suitable thrift compiler
+  readonly pants_cache_dir="$(get_pants_option GLOBAL pants_bootstrapdir)"
+  for candidate in "${pants_cache_dir}"/bin/thrift/*/*/"${expected_version}"/thrift; do
+    if compatible_thrift "${candidate}"; then
+      thrift="${candidate}"
+      break
+    fi
+  done
+
+  if ! compatible_thrift "${thrift}"; then
+    echo "Failed to find or build a thrift binary compatible with Aurora requirements!"
+    exit 1
+  fi
+
+  ln -f -s "${thrift}" "${HERE}/thrift"
+fi
+
+exec "${thrift}" "$@"

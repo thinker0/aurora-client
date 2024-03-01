@@ -21,7 +21,7 @@
 #
 # You can learn more here: https://pantsbuild.github.io/setup
 # ====================================================================
-set -e
+set -ex
 
 # AURORA-1717: If the PYTHONPATH is tainted, calling `./pants` may fail
 # with `ImportError: No module named pants.bin.pants_exe`
@@ -32,7 +32,7 @@ PYTHON=${PYTHON:-$(which python2.7)}
 PANTS_HOME="${PANTS_HOME:-${HOME}/.cache/pants/setup}"
 PANTS_BOOTSTRAP="${PANTS_HOME}/bootstrap-$(uname -s)-$(uname -m)"
 
-VENV_VERSION=16.6.1
+VENV_VERSION=16.7.12
 
 VENV_PACKAGE=virtualenv-${VENV_VERSION}
 VENV_TARBALL=${VENV_PACKAGE}.tar.gz
@@ -96,4 +96,4 @@ function bootstrap_pants {
 }
 
 pants_dir=$(bootstrap_pants) && \
-exec "${pants_dir}/bin/python" "${pants_dir}/bin/pants" "$@"
+exec "${pants_dir}/bin/python" "-W ignore" "${pants_dir}/bin/pants" "$@"
