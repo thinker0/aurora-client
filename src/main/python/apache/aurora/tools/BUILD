@@ -22,6 +22,7 @@ python_library(
   sources = rglobs('*.py', exclude=[[THERMOS_SOURCE], [OBSERVER_SOURCE]]),
   dependencies = [
     '3rdparty/python:CherryPy',
+    '3rdparty/python:MarkupSafe',
     '3rdparty/python:twitter.common.app',
     '3rdparty/python:twitter.common.exceptions',
     '3rdparty/python:twitter.common.log',
