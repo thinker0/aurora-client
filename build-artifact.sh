@@ -65,6 +65,36 @@ run_build() {
   ls -R "$artifact_dir"
 }
 
+run_build_platform() {
+  BUILDER_DIR=$1
+  RELEASE_TAR=$2
+  AURORA_VERSION=$3
+  BUILD_PACKAGE=build.tar.gz
+  local package_name="apache-aurora-${AURORA_VERSION}"
+  IMAGE_NAME="aurora-$(basename $BUILDER_DIR)"
+  echo "Using docker image $IMAGE_NAME"
+  rm -f ${BUILD_PACKAGE}
+  artifact_dir="artifacts/$IMAGE_NAME"
+  rm -rf "$artifact_dir"
+  mkdir -p "$artifact_dir"
+  rsync -a 3rdparty api src pants pants.ini build-support builder specs \
+      --exclude '*.venv' \
+      ${package_name}/
+  rsync -a ${package_name}/.auroraversion \
+      ${package_name}/src/main/python/apache/aurora/client/cli/
+  tar cfz "$RELEASE_TAR" ${package_name}/
+  tar cfz ${BUILD_PACKAGE} "$RELEASE_TAR" \
+      ${package_name} \
+      --exclude build-support/make-python-sdists.venv \
+      --exclude 'build-support/virtualenv-*' \
+      build-support builder specs
+  export AURORA_VERSION=$AURORA_VERSION
+  export GRADLE_VERSION=5.6.4
+  ./builder/$BUILDER_DIR/build.sh
+  echo "Produced artifacts in $artifact_dir:"
+  ls -R "$artifact_dir"
+}
+
 case $# in
   2)
     for builder in $(print_available_builders); do
@@ -74,7 +104,12 @@ case $# in
     ;;
 
   3)
-    run_build "$@"
+    if [ -d "builder/rpm/$1" ]; then
+      run_build "$@"
+    else
+      run_build_platform "$@"
+      exit 1
+    fi
     ;;
 
   *)
