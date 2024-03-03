@@ -43,3 +43,5 @@ tmp/
 *.tar.gz
 apache-aurora-*
 aurora-scheduler-*
+scratch/
+*.log
