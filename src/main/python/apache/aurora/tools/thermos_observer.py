@@ -117,6 +117,18 @@ app.add_option(
     default=DiskCollectorSettings.DEFAULT_DISK_USAGE_PATH,
     help='`jmespath` to disk usage bytes value in agent response json object.')
 
+app.add_option(
+    '--enable-authentication',
+    default=None,
+    dest='enable_authentication',
+    help='A Authentication method "Basic"')
+
+app.add_option(
+    '--redis-cluster',
+    default='redis://localhost:6379',
+    dest='redis_cluster',
+    help='A redis://[[username]:[password]]@localhost:6379/0 of Redis servers.')
+
 
 # Allow an interruptible sleep so that ^C works.
 def sleep_forever():
@@ -144,7 +156,7 @@ def initialize(options):
 def main(_, options):
   observer = initialize(options)
   observer.start()
-  root_server = configure_server(observer)
+  root_server = configure_server(observer, options)
 
   server = ExceptionalThread(target=lambda: root_server.run(options.ip, options.port, 'cherrypy'))
   server.daemon = True

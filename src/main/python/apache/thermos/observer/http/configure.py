@@ -21,8 +21,8 @@ from .http_observer import BottleObserver
 from .vars_endpoint import VarsEndpoint
 
 
-def configure_server(task_observer):
-  bottle_wrapper = BottleObserver(task_observer)
+def configure_server(task_observer, options=None):
+  bottle_wrapper = BottleObserver(task_observer, options=options)
   root_metrics = RootMetrics()
   server = HttpServer()
   server.mount_routes(bottle_wrapper)

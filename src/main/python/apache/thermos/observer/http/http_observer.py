@@ -18,29 +18,120 @@ This modules provides an HTTP server which exposes information about Thermos tas
 system. To do this, it relies heavily on the Thermos TaskObserver.
 
 """
-
 import socket
+import hashlib
+import bottle
+
+from bottle import HTTPResponse
+from expiringdict import ExpiringDict
 
 from twitter.common import log
-from twitter.common.http import HttpServer
+from twitter.common.http import HttpServer, Plugin, request
+from redis3.client import Redis
 
 from .file_browser import TaskObserverFileBrowser
 from .json import TaskObserverJSONBindings
 from .static_assets import StaticAssets
 from .templating import HttpTemplate
 
+# Cache for user authentication information
+# TODO make this configurable
+cache = ExpiringDict(max_len=100, max_age_seconds=1800)
 
-class BottleObserver(HttpServer, StaticAssets, TaskObserverFileBrowser, TaskObserverJSONBindings):
+
+class BasicAuth(Plugin):
+  """A CherryPy plugin that provides HTTP Basic Authentication."""
+  name = 'basic_auth'
+
+  def __init__(self, options=None, realm='Thermos Observer'):
+    self._options = options
+    self._realm = realm
+    self._app = None
+    self._authRedis = None
+
+  def setup(self, app):
+    log.debug('Setting up BasicAuthPlugin')
+    ''' Make sure that other installed plugins don't affect the same
+        keyword argument.'''
+    self._app = app
+    for other in app.plugins:
+      if not isinstance(other, BasicAuth): continue
+      if other.keyword == self.keyword:
+        raise RuntimeError("Found another BasicAuth plugin with " \
+                          "conflicting settings (non-unique keyword).")
+    redis_url = self._options.redis_cluster
+    self._authRedis = Redis.from_url(redis_url)
+    log.debug('Starting redis client: %s' % redis_url)
+
+  def get_user(self, user=None):
+    if user is None:
+      return None
+    if user in cache:
+      log.debug('cache hit: %s' % user)
+      return cache.get(user, None)
+    # TODO make this configurable
+    val = self._authRedis.get('/aurora/thermos/user/%s' % user)
+    if val:
+      log.debug('cache miss: %s' % user)
+      cache[user] = val
+      return val
+    return None
+
+  def apply(self, callback, context):
+    user, password = request.auth or (None, None)
+    userhash = hashlib.sha256('%s:%s' % (user, password)).hexdigest()
+    if (user is not None and password is not None
+        and self.get_user(user) == 'sha256:%s' % userhash):
+      log.debug('Success Authorization user=%s' % user)
+      return callback
+
+    def wrap(*args, **kwargs):
+      user, password = request.auth or (None, None)
+      userhash = hashlib.sha256('%s:%s' % (user, password)).hexdigest()
+      if (user is not None and password is not None
+          and self.get_user(user) == 'sha256:%s' % userhash):
+        log.debug('Success Authorization user=%s' % user)
+        return callback(*args, **kwargs)
+      else:
+        response = HTTPResponse(status=401)
+        response.set_header('WWW-Authenticate', 'Basic realm="%s"' % self._realm)
+        response.status = 401
+        return response
+    return wrap
+
+  def close(self):
+    log.debug('Closing BasicAuthPlugin')
+    self._authRedis.close()
+
+
+class AuthenticateEverything(object):
+  plugins = []
+
+  def __init__(self, options):
+    self._options = options
+    if options.enable_authentication is not None \
+        and options.enable_authentication.lower()=='basic':
+      basicAuth = BasicAuth(self._options)
+      log.debug('Installing AuthenticateEverything')
+      bottle.install(basicAuth)
+      self.plugins.append(basicAuth)
+      log.debug('Installing AuthenticateEverything.plugins: %d' % len(self.plugins))
+
+
+class BottleObserver(HttpServer, StaticAssets, TaskObserverFileBrowser, TaskObserverJSONBindings,
+                     AuthenticateEverything):
   """
     A bottle wrapper around a Thermos TaskObserver.
   """
 
-  def __init__(self, observer):
+  def __init__(self, observer, options):
     self._observer = observer
+    self._options = options
     StaticAssets.__init__(self)
     TaskObserverFileBrowser.__init__(self)
     TaskObserverJSONBindings.__init__(self)
     HttpServer.__init__(self)
+    AuthenticateEverything.__init__(self, options)
 
   @HttpServer.route("/")
   @HttpServer.view(HttpTemplate.load('index'))
