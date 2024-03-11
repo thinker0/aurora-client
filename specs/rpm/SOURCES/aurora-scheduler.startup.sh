@@ -22,6 +22,6 @@ export GLOG_v LIBPROCESS_PORT LIBPROCESS_IP
 export JAVA_OPTS="${JAVA_OPTS[*]}"
 
 # Preferences Java 1.8 over any other Java version.
-export PATH=/usr/lib/jvm/java-1.8.0/bin:${PATH}
+export PATH=/usr/lib/jvm/java-11/bin:${PATH}
 
 exec /usr/lib/aurora/bin/aurora-scheduler "${AURORA_FLAGS[@]}"

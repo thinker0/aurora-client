@@ -38,7 +38,7 @@
 %endif
 
 %if %{?!JAVA_VERSION:!}0
-%global JAVA_VERSION 1.8.0
+%global JAVA_VERSION 11
 %endif
 
 %if %{?!MESOS_VERSION:1}0
