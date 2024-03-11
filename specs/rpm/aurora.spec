@@ -254,6 +254,7 @@ exit 0
 %post
 %if 0%{?fedora} || 0%{?rhel} > 6
 %systemd_post aurora-scheduler.service
+systemctl daemon-reload
 %else
 /sbin/chkconfig --add aurora-scheduler
 %endif
