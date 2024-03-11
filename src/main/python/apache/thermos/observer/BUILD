@@ -24,6 +24,9 @@ python_library(
   name = 'observer',
   sources = rglobs('*.py'),
   dependencies = [
+    '3rdparty/python:CherryPy',
+    '3rdparty/python:expiringdict',
+    '3rdparty/python:redis3',
     '3rdparty/python:bottle',
     '3rdparty/python:mako',
     '3rdparty/python:pex',
