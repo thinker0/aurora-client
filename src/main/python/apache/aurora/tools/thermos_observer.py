@@ -129,6 +129,11 @@ app.add_option(
     dest='redis_cluster',
     help='A redis://[[username]:[password]]@localhost:6379/0 of Redis servers.')
 
+app.add_option(
+    '--redis-key-prefix',
+    default='/aurora/thermos/user/',
+    dest='redis_key_prefix',
+    help='A key prefix of Redis.')
 
 # Allow an interruptible sleep so that ^C works.
 def sleep_forever():
