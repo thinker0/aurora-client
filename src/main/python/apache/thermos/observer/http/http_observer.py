@@ -42,6 +42,7 @@ cache = ExpiringDict(max_len=100, max_age_seconds=1800)
 class BasicAuth(Plugin):
   """A CherryPy plugin that provides HTTP Basic Authentication."""
   name = 'basic_auth'
+  _key_prefix = '/aurora/thermos/user/'
 
   def __init__(self, options=None, realm='Thermos Observer'):
     self._options = options
@@ -62,6 +63,7 @@ class BasicAuth(Plugin):
     redis_url = self._options.redis_cluster
     self._authRedis = Redis.from_url(redis_url)
     log.debug('Starting redis client: %s' % redis_url)
+    self._key_prefix = self._options.redis_key_prefix
 
   def get_user(self, user=None):
     if user is None:
@@ -69,8 +71,7 @@ class BasicAuth(Plugin):
     if user in cache:
       log.debug('cache hit: %s' % user)
       return cache.get(user, None)
-    # TODO make this configurable
-    val = self._authRedis.get('/aurora/thermos/user/%s' % user)
+    val = self._authRedis.get(self._key_prefix + '%s' % user)
     if val:
       log.debug('cache miss: %s' % user)
       cache[user] = val
