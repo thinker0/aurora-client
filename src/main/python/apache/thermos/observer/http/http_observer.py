@@ -27,7 +27,7 @@ from expiringdict import ExpiringDict
 
 from twitter.common import log
 from twitter.common.http import HttpServer, Plugin, request
-from redis3.client import Redis
+from rediscluster import RedisCluster
 
 from .file_browser import TaskObserverFileBrowser
 from .json import TaskObserverJSONBindings
@@ -61,39 +61,47 @@ class BasicAuth(Plugin):
         raise RuntimeError("Found another BasicAuth plugin with " \
                           "conflicting settings (non-unique keyword).")
     redis_url = self._options.redis_cluster
-    self._authRedis = Redis.from_url(redis_url)
+    self._authRedis = RedisCluster.from_url(redis_url, readonly_mode=True)
     log.debug('Starting redis client: %s' % redis_url)
     self._key_prefix = self._options.redis_key_prefix
 
   def get_user(self, user=None):
     if user is None:
       return None
-    if user in cache:
-      log.debug('cache hit: %s' % user)
-      return cache.get(user, None)
+    if cache.__contains__(user):
+      # log.debug('cache hit: %s' % user)
+      val= cache.get(user, None)
+      return val
     val = self._authRedis.get(self._key_prefix + '%s' % user)
-    if val:
-      log.debug('cache miss: %s' % user)
-      cache[user] = val
+    if user is not None and val is not None:
+      log.debug('redis get: %s=%s' % (user, val))
       return val
     return None
 
+  def set_cache(self, user, user_hash):
+    if user is not None and user_hash is not None:
+      cache[user] = 'sha256:%s' % user_hash
+      log.debug('cache set: %s=sha256:%s' % (user, user_hash))
+
   def apply(self, callback, context):
     user, password = request.auth or (None, None)
-    userhash = hashlib.sha256('%s:%s' % (user, password)).hexdigest()
+    user_hash = hashlib.sha256('%s:%s' % (user, password)).hexdigest()
     if (user is not None and password is not None
-        and self.get_user(user) == 'sha256:%s' % userhash):
+        and self.get_user(user) == 'sha256:%s' % user_hash):
       log.debug('Success Authorization user=%s' % user)
       return callback
 
     def wrap(*args, **kwargs):
       user, password = request.auth or (None, None)
-      userhash = hashlib.sha256('%s:%s' % (user, password)).hexdigest()
+      user_hash = hashlib.sha256('%s:%s' % (user, password)).hexdigest()
       if (user is not None and password is not None
-          and self.get_user(user) == 'sha256:%s' % userhash):
-        log.debug('Success Authorization user=%s' % user)
+          and self.get_user(user) == 'sha256:%s' % user_hash):
+        log.info('Success Authorization user=%s, hash=256:%s' % (user, user_hash))
+        self.set_cache(user, user_hash)
         return callback(*args, **kwargs)
       else:
+        # log.debug("userhash: cache(%s) %s:sha256:%s" % (self.get_user(user), user, userhash))
+        log.debug("Authentication: sha256:%s" % user_hash)
         response = HTTPResponse(status=401)
         response.set_header('WWW-Authenticate', 'Basic realm="%s"' % self._realm)
         response.status = 401
