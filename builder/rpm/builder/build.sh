@@ -45,3 +45,13 @@ mv dist/kaurora_admin.pex dist/aurora_admin.pex
 
 # Packages the Thermos runner within the Thermos executor.
 build-support/embed_runner_in_executor.py
+
+# Packages the Aurora scheduler and client PEX binaries.
+mkdir -p /dist
+mv dist/aurora.pex /dist/aurora
+mv dist/aurora_admin.pex /dist/aurora_admin
+mv dist/thermos_executor.pex /dist/thermos_executor
+mv dist/thermos.pex /dist/thermos
+mv dist/thermos_observer.pex /dist/thermos_observer
+mv dist/thermos_runner.pex /dist/thermos_runner
+chmod -R 555 /dist/*

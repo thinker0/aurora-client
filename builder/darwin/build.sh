@@ -35,6 +35,7 @@ export LANG=en_US.UTF-8
 wget https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-bin.zip
 unzip gradle-${GRADLE_VERSION}-bin.zip
 
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
 # Builds the Aurora scheduler.
 ./gradle-${GRADLE_VERSION}/bin/gradle installDist --stacktrace
 
