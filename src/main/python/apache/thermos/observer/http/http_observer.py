@@ -72,10 +72,13 @@ class BasicAuth(Plugin):
       # log.debug('cache hit: %s' % user)
       val= cache.get(user, None)
       return val
-    val = self._authRedis.get(self._key_prefix + '%s' % user)
-    if user is not None and val is not None:
-      log.debug('redis get: %s=%s' % (user, val))
-      return val
+    try:
+      val = self._authRedis.get(self._key_prefix + '%s' % user)
+      if user is not None and val is not None:
+        log.debug('redis get: %s=%s' % (user, val))
+        return val
+    except Exception as e:
+      log.error('redis get: %s' % e)
     return None
 
   def set_cache(self, user, user_hash):
