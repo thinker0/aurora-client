@@ -23,7 +23,7 @@ RUN yum install -y \
     flex \
     gcc \
     gcc-c++ \
-    java-11-openjdk-devel \
+    java-1.8.0-openjdk-devel \
     krb5-devel \
     libcurl-devel \
     libffi-devel \
@@ -42,7 +42,7 @@ RUN yum install -y \
     zlib-devel
 
 # Crude workaround for https://github.com/gradle/gradle/issues/1782
-RUN mkdir -p /usr/lib/jvm/java-11/jre/lib/security
-RUN ln -s /etc/pki/java/cacerts /usr/lib/jvm/java-11/jre/lib/security/cacerts
+RUN mkdir -p /usr/lib/jvm/java-8-openjdk-amd64/jre/lib/security
+RUN ln -s /etc/pki/java/cacerts /usr/lib/jvm/java-8-openjdk-amd64/jre/lib/security/cacerts
 
 ADD build.sh /build.sh

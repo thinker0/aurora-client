@@ -22,7 +22,7 @@ tar --warning=no-unknown-keyword --strip-components 1 -C src -xf /src.tar.gz
 cd /scratch/src
 ls -la /scratch/src
 yum remove -y git
-export PATH=/usr/lib/jvm/java-11/bin:${PATH}
+export PATH=/usr/lib/jvm/java-1.8.0/bin:${PATH}
 
 # Downloads Gradle executable.
 wget https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-bin.zip
