@@ -18,9 +18,9 @@
 
 <link rel="stylesheet"
       type="text/css"
-      href="assets/bootstrap.css"/>
+      href="/assets/bootstrap.css"/>
 
-<script src="assets/jquery.js"></script>
+<script src="/assets/jquery.js"></script>
 <link rel="icon" href="/assets/favicon.ico">
 </head>
 
@@ -28,12 +28,12 @@
 
 <div class="container" id="defaultLayout">
   <div id="activeTaskContainer" class='uber-container'>
-    <div class="active-container" data-url="main/active">
+    <div class="active-container" data-url="/main/active">
     </div>
   </div>
   <br><br>
   <div id="finishedTaskContainer" class='uber-container'>
-    <div class="finished-container" data-url="main/finished">
+    <div class="finished-container" data-url="/main/finished">
     </div>
   </div>
 </div>
