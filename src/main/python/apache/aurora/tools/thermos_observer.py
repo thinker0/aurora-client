@@ -135,6 +135,12 @@ app.add_option(
     dest='redis_key_prefix',
     help='A key prefix of Redis.')
 
+app.add_option(
+    '--scheduler-web-url',
+    default='http://localhost:28080',
+    dest='scheduler_web_url',
+    help='Aurora Scheduler Web URL.')
+
 # Allow an interruptible sleep so that ^C works.
 def sleep_forever():
   while True:
@@ -155,7 +161,8 @@ def initialize(options):
       Amount(options.task_process_collection_interval_secs, Time.SECONDS),
       disable_task_resource_collection=options.disable_task_resource_collection,
       enable_mesos_disk_collector=options.enable_mesos_disk_collector,
-      disk_collector_settings=disk_collector_settings)
+      disk_collector_settings=disk_collector_settings,
+      scheduler_web_url=options.scheduler_web_url)
 
 
 def main(_, options):

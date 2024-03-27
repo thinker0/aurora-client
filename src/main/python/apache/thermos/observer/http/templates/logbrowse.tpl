@@ -48,7 +48,7 @@ div.tight
   overflow:scroll;
 }
 </style>
-
+<link rel="stylesheet" type="text/css" href="/assets/navbar.css"/>
 <title>log browser ${task_id}</title>
 <body>
   <div> <strong> log </strong> ${logtype} <strong> ${download_link()} </strong> </div>
