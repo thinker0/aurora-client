@@ -70,6 +70,9 @@ class TaskObserverFileBrowser(object):
     Mixin for Thermos observer File browser.
   """
 
+  def __init__(self, options):
+    self._scheduler_web_url = options.scheduler_web_url
+
   @HttpServer.route("/logs/:task_id/:process/:run/:logtype")
   @HttpServer.mako_view(HttpTemplate.load('logbrowse'))
   def handle_logs(self, task_id, process, run, logtype):
@@ -126,7 +129,7 @@ class TaskObserverFileBrowser(object):
     chroot, path = self._observer.valid_path(task_id, path)
     if chroot is None or path is None:
       bottle.abort(404, "Sandbox does not exist.")
-    return dict(task_id=task_id, chroot=chroot, path=path)
+    return dict(task_id=task_id, chroot=chroot, path=path, scheduler_web_url=self._scheduler_web_url)
 
   @HttpServer.route("/download/:task_id/:path#.+#")
   def handle_download(self, task_id, path=None):

@@ -65,7 +65,8 @@ class TaskObserver(ExceptionalThread, Lockable):
       task_process_collection_interval=TaskResourceMonitor.PROCESS_COLLECTION_INTERVAL,
       disable_task_resource_collection=False,
       enable_mesos_disk_collector=False,
-      disk_collector_settings=DiskCollectorSettings()):
+      disk_collector_settings=DiskCollectorSettings(),
+      scheduler_web_url='http://localhost:28080'):
 
     self._detector = ObserverTaskDetector(
         path_detector,
@@ -77,6 +78,7 @@ class TaskObserver(ExceptionalThread, Lockable):
     self._enable_mesos_disk_collector = enable_mesos_disk_collector
     self._disable_task_resource_collection = disable_task_resource_collection
     self._disk_collector_settings = disk_collector_settings
+    self._scheduler_web_url = scheduler_web_url
     self._active_tasks = {}    # task_id => ActiveObservedTask
     self._finished_tasks = {}  # task_id => FinishedObservedTask
     self._stop_event = threading.Event()
@@ -323,6 +325,7 @@ class TaskObserver(ExceptionalThread, Lockable):
       offset=offset,
       num=num,
       task_count=self.task_count()[type],
+      scheduler_web_url=self._scheduler_web_url,
     )
 
   def _sample(self, task_id):

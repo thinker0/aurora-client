@@ -139,8 +139,9 @@ class BottleObserver(HttpServer, StaticAssets, TaskObserverFileBrowser, TaskObse
   def __init__(self, observer, options):
     self._observer = observer
     self._options = options
+    self._scheduler_web_url = options.scheduler_web_url
     StaticAssets.__init__(self)
-    TaskObserverFileBrowser.__init__(self)
+    TaskObserverFileBrowser.__init__(self, options)
     TaskObserverJSONBindings.__init__(self)
     HttpServer.__init__(self)
     AuthenticateEverything.__init__(self, options)
@@ -148,7 +149,10 @@ class BottleObserver(HttpServer, StaticAssets, TaskObserverFileBrowser, TaskObse
   @HttpServer.route("/")
   @HttpServer.view(HttpTemplate.load('index'))
   def handle_index(self):
-    return dict(hostname=socket.gethostname())
+    return dict(
+      hostname=socket.gethostname(),
+      scheduler_web_url=self._scheduler_web_url,
+    )
 
   @HttpServer.route("/main")
   @HttpServer.route("/main/:type")
@@ -190,6 +194,7 @@ class BottleObserver(HttpServer, StaticAssets, TaskObserverFileBrowser, TaskObse
       chroot=state.get('sandbox', ''),
       launch_time=state.get('launch_time', 0),
       hostname=state.get('hostname', 'localhost'),
+      scheduler_web_url=self._scheduler_web_url,
     )
 
   def get_task(self, task_id):
@@ -206,7 +211,8 @@ class BottleObserver(HttpServer, StaticAssets, TaskObserverFileBrowser, TaskObse
     return dict(
       hostname=state.get('hostname', 'localhost'),
       task_id=task_id,
-      task_struct=task['task_struct']
+      task_struct=task['task_struct'],
+      scheduler_web_url=self._scheduler_web_url,
     )
 
   @HttpServer.route("/process/:task_id/:process_id")
@@ -234,6 +240,7 @@ class BottleObserver(HttpServer, StaticAssets, TaskObserverFileBrowser, TaskObse
          'status': all_processes[current_run_number]["state"],
          'cmdline': process.cmdline().get()
       },
+      'scheduler_web_url': self._scheduler_web_url,
     }
     template['process'].update(**all_processes[current_run_number].get('used', {}))
     template['runs'] = all_processes
