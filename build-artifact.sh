@@ -36,18 +36,27 @@ run_build() {
   rm -f ${BUILD_PACKAGE}
   artifact_dir="artifacts/$IMAGE_NAME"
   rm -rf "$artifact_dir"
-  mkdir -p "$artifact_dir"
+  mkdir -p "$artifact_dir" target
+  pushd ../aurora && {
+    git archive --format=tar.gz \
+        --prefix=apache-aurora-$AURORA_VERSION/ \
+        HEAD > ../aurora-client/target/apache-aurora-$AURORA_VERSION.tar.gz
+    popd
+  } && {
+    rm -rf target/$package_name
+    pushd target/ && tar xvfz apache-aurora-$AURORA_VERSION.tar.gz && popd
+  }
   rsync -a 3rdparty api src pants pants.ini build-support builder specs \
       --exclude '*.venv' \
-      ${package_name}/
-  rsync -a ${package_name}/.auroraversion \
-      ${package_name}/src/main/python/apache/aurora/client/cli/
-  tar cfz "$RELEASE_TAR" ${package_name}/
-  tar cfz ${BUILD_PACKAGE} "$RELEASE_TAR" \
-      ${package_name} \
-      --exclude build-support/make-python-sdists.venv \
-      --exclude build-support/virtualenv-* \
-      build-support builder specs
+      target/${package_name}/
+  pushd target && {
+    rsync -a ${package_name}/.auroraversion \
+        ${package_name}/src/main/python/apache/aurora/client/cli/
+    tar cfz "$RELEASE_TAR" ${package_name}/
+    tar cfz ${BUILD_PACKAGE} "$RELEASE_TAR" \
+        ${package_name}
+    popd
+  }
   docker run -it \
     -e AURORA_VERSION=$AURORA_VERSION \
     -e GRADLE_VERSION=5.6.4 \
@@ -55,7 +64,7 @@ run_build() {
     --net=host \
     -v "$(pwd)/$artifact_dir:/dist:rw" \
     -v "$(pwd)/specs:/specs:ro" \
-    -v "$(realpath ${BUILD_PACKAGE}):/src.tar.gz:ro" \
+    -v "$(realpath target/${BUILD_PACKAGE}):/src.tar.gz:ro" \
     -t "$IMAGE_NAME" /build.sh
   container=$(docker ps -l -q)
   docker cp $container:/dist "$artifact_dir"
@@ -76,18 +85,27 @@ run_build_platform() {
   rm -f ${BUILD_PACKAGE}
   artifact_dir="artifacts/$IMAGE_NAME"
   rm -rf "$artifact_dir"
-  mkdir -p "$artifact_dir"
+  mkdir -p "$artifact_dir" target
+  pushd ../aurora && {
+    git archive --format=tar.gz \
+        --prefix=apache-aurora-$AURORA_VERSION/ \
+        HEAD > ../aurora-client/target/apache-aurora-$AURORA_VERSION.tar.gz
+    popd
+  } && {
+    rm -rf target/$package_name
+    pushd target/ && tar xvfz apache-aurora-$AURORA_VERSION.tar.gz && popd
+  }
   rsync -a 3rdparty api src pants pants.ini build-support builder specs \
       --exclude '*.venv' \
-      ${package_name}/
-  rsync -a ${package_name}/.auroraversion \
-      ${package_name}/src/main/python/apache/aurora/client/cli/
-  tar cfz "$RELEASE_TAR" ${package_name}/
-  tar cfz ${BUILD_PACKAGE} "$RELEASE_TAR" \
-      ${package_name} \
-      --exclude build-support/make-python-sdists.venv \
-      --exclude 'build-support/virtualenv-*' \
-      build-support builder specs
+      target/${package_name}/
+  pushd target && {
+    rsync -a ${package_name}/.auroraversion \
+        ${package_name}/src/main/python/apache/aurora/client/cli/
+    tar cfz "$RELEASE_TAR" ${package_name}/
+    tar cfz ${BUILD_PACKAGE} "$RELEASE_TAR" \
+        ${package_name}
+    popd
+  }
   export AURORA_VERSION=$AURORA_VERSION
   export GRADLE_VERSION=5.6.4
   ./builder/$BUILDER_DIR/build.sh
