@@ -80,14 +80,26 @@ function bootstrap_pants {
   else
     pants_version="unspecified"
   fi
-
+  # Pants is a bit of a special case in that we want to bootstrap it into a venv
+  # Add --find-links https://svn.apache.org/repos/asf/aurora/3rdparty/centos/7/python/ to the pip install command
+  # Add --find-links https://... to the pip install command
+  #     faulthandler-2.6.tar.gz
+  #     mesos.interface-1.11.0-py2.7.egg
+  #     mesos.executor-1.7.1-py2.7-linux-x86_64.egg
+  #     mesos.native-1.7.1-py2.7-linux-x86_64.egg
   if [[ ! -d "${PANTS_BOOTSTRAP}/${pants_version}" ]]
   then
     (
       venv_path="$(bootstrap_venv)" && \
       staging_dir=$(tempdir "${PANTS_BOOTSTRAP}") && \
-      "${PYTHON}" "${venv_path}/virtualenv.py" --no-download "${staging_dir}/install" && \
-      "${staging_dir}/install/bin/python" "${staging_dir}/install/bin/pip" install "${pants_requirement}" && \
+      "${PYTHON}" "-W ignore" "${venv_path}/virtualenv.py" --no-download "${staging_dir}/install" && \
+      source "${staging_dir}/install/bin/activate" && \
+      "${staging_dir}/install/bin/python" "-W ignore" "${staging_dir}/install/bin/pip" install --upgrade pip && \
+      "${staging_dir}/install/bin/python" \
+          "-W ignore" \
+          "${staging_dir}/install/bin/pip" install --progress-bar off \
+          --find-links "https://svn.apache.org/repos/asf/aurora/3rdparty/centos/7/python/" \
+          "${pants_requirement}" && \
       ln -s "${staging_dir}/install" "${staging_dir}/${pants_version}" && \
       mv "${staging_dir}/${pants_version}" "${PANTS_BOOTSTRAP}/${pants_version}"
     ) 1>&2
