@@ -23,16 +23,40 @@
   <title></title>
 
   <style type="text/css">
+    :root {
+      --text: #000;
+      --bg: #fff;
+      --log-text: #000;
+      --log-bg: #fff;
+    }
     .log {
       font-family: "Inconsolata", "Monaco", "Courier New", "Courier";
       line-height:14px;
       font-size: 12px;
+      color: var(--log-text);
+      background-color: var(--log-bg);
     }
 
     .invert {
       color: #FFFFFF;
       text-decoration: none;
       background: #000000;
+    }
+    .filename {
+      color: var(--text);
+      background-color: var(--bg);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --text: #fff;
+        --bg: #000;
+        --log-text: #333;
+        --log-bg: #fff;
+      }
+      .invert {
+        color: #000000;
+        background: #FFFFFF;
+      }
     }
   </style>
   <link rel="icon" href="/assets/favicon.ico">
@@ -51,8 +75,7 @@ div.tight
 <link rel="stylesheet" type="text/css" href="/assets/navbar.css"/>
 <title>file browser ${task_id}</title>
 <body>
-  <div> <strong> filename </strong> ${filename} </div>
-  <div> <strong> dl </strong> ${download_link()} </div>
+  <div class="filename"> <strong> filename </strong> ${filename} <strong> dl </strong> ${download_link()} </div>
   <div style="position: absolute; left: 5px; top: 0px;">
     <p id="indicator" class="log invert"></p>
   </div>

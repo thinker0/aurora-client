@@ -54,7 +54,7 @@ def pretty_time(seconds=time.time()):
 <nav class="navbar">
   <div class="container">
     <div class="navbar-header">
-      <a class="navbar-brand" href="${scheduler_web_url}/scheduler"><img alt="Brand" src="/assets/aurora_logo_white.png"></a>
+      <a class="navbar-brand" href="${scheduler_web_url}/scheduler"><img alt="Brand" src="${scheduler_web_url}/assets/images/aurora_logo_white.png"></a>
     </div>
     <ul class="nav navbar-nav navbar-right">
       <li><a href="${scheduler_web_url}/updates">updates</a></li>
