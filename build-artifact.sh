@@ -59,7 +59,7 @@ run_build() {
   }
   docker run -it \
     -e AURORA_VERSION=$AURORA_VERSION \
-    -e GRADLE_VERSION=5.6.4 \
+    -e GRADLE_VERSION=6.9.4 \
     -e GIT_DISCOVERY_ACROSS_FILESYSTEM=1 \
     --net=host \
     -v "$(pwd)/$artifact_dir:/dist:rw" \
@@ -107,7 +107,7 @@ run_build_platform() {
     popd
   }
   export AURORA_VERSION=$AURORA_VERSION
-  export GRADLE_VERSION=5.6.4
+  export GRADLE_VERSION=6.9.4
   ./builder/$BUILDER_DIR/build.sh
   echo "Produced artifacts in $artifact_dir:"
   ls -R "$artifact_dir"
