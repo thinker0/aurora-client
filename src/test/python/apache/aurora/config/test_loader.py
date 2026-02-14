@@ -17,7 +17,7 @@ import os
 import tempfile
 from io import BytesIO
 
-import mock
+from unittest import mock
 import pytest
 from twitter.common.contextutil import temporary_dir, temporary_file
 
@@ -69,7 +69,8 @@ include("./%s")
 jobs = [HELLO_WORLD, OTHERJOB]
 """
 
-MESOS_CONFIG_MD5 = hashlib.md5(MESOS_CONFIG).hexdigest()
+MESOS_CONFIG_BYTES = MESOS_CONFIG.encode()
+MESOS_CONFIG_MD5 = hashlib.md5(MESOS_CONFIG_BYTES).hexdigest()
 
 
 def test_enoent():
@@ -80,11 +81,11 @@ def test_enoent():
 
 def test_bad_config():
   with pytest.raises(AuroraConfigLoader.InvalidConfigError):
-    AuroraConfigLoader.load(BytesIO(BAD_MESOS_CONFIG))
+    AuroraConfigLoader.load(BytesIO(BAD_MESOS_CONFIG.encode()))
 
 
 def test_filter_schema():
-  env = AuroraConfigLoader.load(BytesIO(MESOS_CONFIG))
+  env = AuroraConfigLoader.load(BytesIO(MESOS_CONFIG_BYTES))
   job_dict = env['jobs'][0].get()
   job_dict['unknown_attribute'] = 'foo bar baz'
   job_json_string = json.dumps(job_dict)
@@ -97,7 +98,7 @@ def test_empty_config():
 
 
 def test_load_json_single():
-  env = AuroraConfigLoader.load(BytesIO(MESOS_CONFIG))
+  env = AuroraConfigLoader.load(BytesIO(MESOS_CONFIG_BYTES))
   job = env['jobs'][0]
   new_job = AuroraConfigLoader.loads_json(json.dumps(job.get()))['jobs'][0]
   assert new_job == job
@@ -105,7 +106,7 @@ def test_load_json_single():
 
 def test_gen_content_key():
   content = "one two three"
-  expected_md5 = hashlib.md5(content).hexdigest()
+  expected_md5 = hashlib.md5(content.encode()).hexdigest()
 
   assert AuroraConfigLoader.gen_content_key(1) is None, (
     "Non filetype results in None")
@@ -126,7 +127,7 @@ def test_gen_content_key():
 
 @mock.patch('apache.aurora.config.loader.AuroraConfigLoader.gen_content_key')
 def test_memoized_load_json_cache_hit(mock_gen_content_key):
-  expected_env = AuroraConfigLoader.load(BytesIO(MESOS_CONFIG))
+  expected_env = AuroraConfigLoader.load(BytesIO(MESOS_CONFIG_BYTES))
   expected_job_json = json.dumps(expected_env['jobs'][0].get())
   mock_gen_content_key.return_value = MESOS_CONFIG_MD5
   AuroraConfigLoader.CACHED_JSON = {MESOS_CONFIG_MD5: expected_job_json}
@@ -136,10 +137,10 @@ def test_memoized_load_json_cache_hit(mock_gen_content_key):
 
 def test_load_json_memoized():
   AuroraConfigLoader.CACHED_JSON = {}
-  env = AuroraConfigLoader.load(BytesIO(MESOS_CONFIG_MULTI))
+  env = AuroraConfigLoader.load(BytesIO(MESOS_CONFIG_MULTI.encode()))
   jobs = env['jobs']
   content = json.dumps(jobs[0].get())
-  expected_md5 = hashlib.md5(content).hexdigest()
+  expected_md5 = hashlib.md5(content.encode()).hexdigest()
   with temporary_dir() as d:
     filename = os.path.join(d, 'config.json')
     with open(filename, 'w+') as fp:
@@ -157,7 +158,7 @@ def test_load_json_memoized():
 
 
 def test_load_json_multi():
-  env = AuroraConfigLoader.load(BytesIO(MESOS_CONFIG_MULTI))
+  env = AuroraConfigLoader.load(BytesIO(MESOS_CONFIG_MULTI.encode()))
   jobs = env['jobs']
   json_env = AuroraConfigLoader.loads_json(json.dumps({'jobs': [job.get() for job in jobs]}))
   json_jobs = json_env['jobs']
@@ -166,7 +167,7 @@ def test_load_json_multi():
 
 def test_load():
   with temporary_file() as fp:
-    fp.write(MESOS_CONFIG)
+    fp.write(MESOS_CONFIG_BYTES)
     fp.flush()
     fp.seek(0)
 
@@ -181,12 +182,12 @@ def test_load_with_includes():
   with temporary_dir() as tmp_dir:
     f1_name = 'f1.aurora'
     f2_name = 'f2.aurora'
-    with open(os.path.join(tmp_dir, f1_name), 'w+') as f1:
-      f1.write(MESOS_CONFIG)
+    with open(os.path.join(tmp_dir, f1_name), 'wb') as f1:
+      f1.write(MESOS_CONFIG_BYTES)
       f1.flush()
       f1.seek(0)
-      with open(os.path.join(tmp_dir, f2_name), 'w+') as f2:
-        f2.write(MESOS_CONFIG_WITH_INCLUDE_TEMPLATE % f1_name)
+      with open(os.path.join(tmp_dir, f2_name), 'wb') as f2:
+        f2.write((MESOS_CONFIG_WITH_INCLUDE_TEMPLATE % f1_name).encode())
         f2.flush()
         f2.seek(0)
 
@@ -200,7 +201,7 @@ def test_load_with_includes():
 
 @mock.patch('apache.aurora.config.loader.AuroraConfigLoader.gen_content_key')
 def test_memoized_load_cache_hit(mock_gen_content_key):
-  expected_env = AuroraConfigLoader.load(BytesIO(MESOS_CONFIG))
+  expected_env = AuroraConfigLoader.load(BytesIO(MESOS_CONFIG_BYTES))
   mock_gen_content_key.return_value = MESOS_CONFIG_MD5
   AuroraConfigLoader.CACHED_ENV = {MESOS_CONFIG_MD5: expected_env}
   loaded_env = AuroraConfigLoader.load('a/path', is_memoized=True)
@@ -215,8 +216,8 @@ def test_memoized_load():
     assert env['jobs'][0].name().get() == 'hello_world'
 
   with temporary_dir() as d:
-    with open(os.path.join(d, 'config.aurora'), 'w+') as fp:
-      fp.write(MESOS_CONFIG)
+    with open(os.path.join(d, 'config.aurora'), 'w+b') as fp:
+      fp.write(MESOS_CONFIG_BYTES)
       fp.flush()
       fp.seek(0)
 
@@ -235,7 +236,7 @@ def test_memoized_load():
 
 
 def test_pick():
-  env = AuroraConfigLoader.load(BytesIO(MESOS_CONFIG))
+  env = AuroraConfigLoader.load(BytesIO(MESOS_CONFIG_BYTES))
 
   hello_world = env['jobs'][0]
   assert AuroraConfig.pick(env, 'hello_world', None) == hello_world

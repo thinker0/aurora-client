@@ -12,6 +12,10 @@
 # limitations under the License.
 #
 
+from apache.aurora.common import kazoo_compat
+
+kazoo_compat.apply()
+
 from twitter.common import app
 from twitter.common.log.options import LogOptions
 
@@ -49,4 +53,12 @@ app.add_option(
 
 
 def proxy_main():
+  import inspect
+  if not hasattr(inspect, 'getargspec'):
+    from collections import namedtuple
+    ArgSpec = namedtuple('ArgSpec', 'args varargs keywords defaults')
+    def _getargspec(func):
+      spec = inspect.getfullargspec(func)
+      return ArgSpec(spec.args, spec.varargs, spec.varkw, spec.defaults)
+    inspect.getargspec = _getargspec
   app.main()

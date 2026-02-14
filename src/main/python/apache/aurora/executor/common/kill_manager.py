@@ -12,7 +12,7 @@
 # limitations under the License.
 #
 
-from mesos.interface.mesos_pb2 import TaskState
+from pesos.mesos_pb2 import TaskState
 
 from .status_checker import StatusChecker, StatusResult
 

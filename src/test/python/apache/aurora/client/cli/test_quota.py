@@ -14,7 +14,7 @@
 
 import json
 
-from mock import patch
+from unittest.mock import patch
 
 from apache.aurora.client.cli.client import AuroraCommandLine
 
@@ -29,10 +29,10 @@ class TestGetQuotaCommand(AuroraClientCommandTest):
     api = mock_context.get_api('west')
     response = cls.create_simple_success_response()
     response.result = Result(getQuotaResult=GetQuotaResult(
-        quota=ResourceAggregate(resources=frozenset([
+        quota=ResourceAggregate(resources=(
             Resource(numCpus=5),
             Resource(ramMb=20480),
-            Resource(diskMb=40960)])),
+            Resource(diskMb=40960))),
         prodSharedConsumption=None,
         prodDedicatedConsumption=None,
         nonProdSharedConsumption=None,
@@ -45,26 +45,26 @@ class TestGetQuotaCommand(AuroraClientCommandTest):
     api = mock_context.get_api('west')
     response = cls.create_simple_success_response()
     response.result = Result(getQuotaResult=GetQuotaResult(
-      quota=ResourceAggregate(resources=frozenset([
+      quota=ResourceAggregate(resources=(
           Resource(numCpus=5),
           Resource(ramMb=20480),
-          Resource(diskMb=40960)])),
-      prodSharedConsumption=ResourceAggregate(resources=frozenset([
+          Resource(diskMb=40960))),
+        prodSharedConsumption=ResourceAggregate(resources=(
           Resource(numCpus=1),
           Resource(ramMb=512),
-          Resource(diskMb=1024)])),
-      prodDedicatedConsumption=ResourceAggregate(resources=frozenset([
+          Resource(diskMb=1024))),
+        prodDedicatedConsumption=ResourceAggregate(resources=(
           Resource(numCpus=2),
           Resource(ramMb=1024),
-          Resource(diskMb=2048)])),
-      nonProdSharedConsumption=ResourceAggregate(resources=frozenset([
+          Resource(diskMb=2048))),
+        nonProdSharedConsumption=ResourceAggregate(resources=(
           Resource(numCpus=3),
           Resource(ramMb=2048),
-          Resource(diskMb=4096)])),
-      nonProdDedicatedConsumption=ResourceAggregate(resources=frozenset([
+          Resource(diskMb=4096))),
+        nonProdDedicatedConsumption=ResourceAggregate(resources=(
           Resource(numCpus=4),
           Resource(ramMb=4096),
-          Resource(diskMb=8192)])),
+          Resource(diskMb=8192))),
     ))
     api.get_quota.return_value = response
 

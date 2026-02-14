@@ -68,6 +68,8 @@ class HttpSignaler(object):
       raise self.QueryError('Failed to signal %s: %s' % (self.url(endpoint), reason))
 
     try:
+      if isinstance(data, str):
+        data = data.encode('utf-8')
       with contextlib.closing(
           self.opener(url, data, timeout=self._timeout_secs)) as fp:
         return (fp.read(), fp.getcode())
@@ -94,6 +96,8 @@ class HttpSignaler(object):
     """
     try:
       response, response_code = self.query(endpoint, '' if use_post_method else None)
+      if isinstance(response, bytes):
+        response = response.decode('utf-8', 'replace')
       response = response.strip().lower()
       if expected_response and response != expected_response.lower():
         reason = 'Response differs from expected response (expected "%s", got "%s")'

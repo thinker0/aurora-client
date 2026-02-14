@@ -16,7 +16,18 @@ import contextlib
 import unittest
 
 import pytest
-from mock import Mock, call, patch
+from unittest.mock import Mock, call, patch
+
+if not hasattr(contextlib, 'nested'):
+  from contextlib import ExitStack, contextmanager
+  def _nested(*contexts):
+    @contextmanager
+    def _manager():
+      with ExitStack() as stack:
+        entered = [stack.enter_context(ctx) for ctx in contexts]
+        yield tuple(entered)
+    return _manager()
+  contextlib.nested = _nested
 
 from apache.aurora.client.api.job_monitor import JobMonitor
 from apache.aurora.client.cli import Context
@@ -124,7 +135,7 @@ class TestKillCommand(AuroraClientCommandTest):
 
     with pytest.raises(Context.CommandError) as e:
       command.execute(fake_context)
-    assert e.value.message == "Invalid instance parameter: [1]"
+    assert e.value.msg == "Invalid instance parameter: [1]"
 
   def test_kill_batched_queries_active_instances(self):
     """Verify that the batch kill operates on active instances only."""

@@ -12,7 +12,7 @@
 # limitations under the License.
 #
 
-from mock import patch
+from unittest.mock import patch
 from twitter.common.contextutil import temporary_file
 
 from apache.aurora.client.cli.client import AuroraCommandLine
@@ -116,7 +116,7 @@ class TestClientCreateCommand(AuroraClientCommandTest):
       api.get_tier_configs.return_value = self.get_mock_tier_configurations()
 
       with temporary_file() as fp:
-        fp.write(self.get_valid_config())
+        fp.write(self.get_valid_config().encode())
         fp.flush()
         cmd = AuroraCommandLine()
         cmd.execute(["job", "create", "--wait-until=RUNNING", "west/bozo/test/hello",
@@ -141,7 +141,7 @@ class TestClientCreateCommand(AuroraClientCommandTest):
       api.create_job.return_value = self.get_createjob_response()
 
       with temporary_file() as fp:
-        fp.write(self.get_valid_config())
+        fp.write(self.get_valid_config().encode())
         fp.flush()
         cmd = AuroraCommandLine()
         result = cmd.execute(["job", "create", "--wait-until=RUNNING", "west/bozo/test/hello",

@@ -73,9 +73,15 @@ class AuroraConfigLoader(PystachioConfig):
     key = None
     if FileExecutor.matches(loadable):
       with open(loadable) as fp:
-        key = hashlib.md5(fp.read()).hexdigest()
+        data = fp.read()
+        if isinstance(data, str):
+          data = data.encode()
+        key = hashlib.md5(data).hexdigest()
     elif FilelikeExecutor.matches(loadable):
-      key = hashlib.md5(loadable.read()).hexdigest()
+      data = loadable.read()
+      if isinstance(data, str):
+        data = data.encode()
+      key = hashlib.md5(data).hexdigest()
       loadable.seek(0)
     return key
 

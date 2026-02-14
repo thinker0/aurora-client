@@ -22,7 +22,8 @@ tar --warning=no-unknown-keyword --strip-components 1 -C src -xf /src.tar.gz
 cd /scratch/src
 ls -la /scratch/src
 yum remove -y git
-export PATH=/usr/lib/jvm/java-1.8.0/bin:${PATH}
+export PATH=/usr/lib/jvm/java-11-openjdk/bin:${PATH}
+export PANTS_PYTHON=/usr/bin/python3.9
 
 # Downloads Gradle executable.
 wget https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-bin.zip
@@ -32,16 +33,16 @@ unzip gradle-${GRADLE_VERSION}-bin.zip
 ./gradle-${GRADLE_VERSION}/bin/gradle installDist
 
 # Builds Aurora client PEX binaries.
-./pants binary src/main/python/apache/aurora/kerberos:kaurora
-mv dist/kaurora.pex dist/aurora.pex
-./pants binary src/main/python/apache/aurora/kerberos:kaurora_admin
-mv dist/kaurora_admin.pex dist/aurora_admin.pex
+./pants package src/main/python/apache/aurora/kerberos:kaurora
+mv dist/src.main.python.apache.aurora.kerberos/kaurora.pex dist/aurora.pex
+./pants package src/main/python/apache/aurora/kerberos:kaurora_admin
+mv dist/src.main.python.apache.aurora.kerberos/kaurora_admin.pex dist/aurora_admin.pex
 
 # Builds Aurora Thermos and GC executor PEX binaries.
-./pants binary src/main/python/apache/aurora/executor:thermos_executor
-./pants binary src/main/python/apache/aurora/tools:thermos
-./pants binary src/main/python/apache/aurora/tools:thermos_observer
-./pants binary src/main/python/apache/thermos/runner:thermos_runner
+./pants package src/main/python/apache/aurora/executor:thermos_executor
+./pants package src/main/python/apache/aurora/tools:thermos
+./pants package src/main/python/apache/aurora/tools:thermos_observer
+./pants package src/main/python/apache/thermos/runner:thermos_runner
 
 # Packages the Thermos runner within the Thermos executor.
 build-support/embed_runner_in_executor.py
@@ -50,8 +51,8 @@ build-support/embed_runner_in_executor.py
 mkdir -p /dist
 mv dist/aurora.pex /dist/aurora
 mv dist/aurora_admin.pex /dist/aurora_admin
-mv dist/thermos_executor.pex /dist/thermos_executor
-mv dist/thermos.pex /dist/thermos
-mv dist/thermos_observer.pex /dist/thermos_observer
-mv dist/thermos_runner.pex /dist/thermos_runner
+mv dist/src/main/python/apache/executor/thermos_executor.pex /dist/thermos_executor
+mv dist/src/main/python/apache/aurora/tools/thermos.pex /dist/thermos
+mv dist/src/main/python/apache/aurora/tools/thermos_observer.pex /dist/thermos_observer
+mv dist/src/main/python/apache/thermos/runner/thermos_runner.pex /dist/thermos_runner
 chmod -R 555 /dist/*

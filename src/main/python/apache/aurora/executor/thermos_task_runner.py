@@ -23,7 +23,7 @@ import sys
 import threading
 import time
 
-from mesos.interface import mesos_pb2
+from pesos.vendor.mesos import mesos_pb2
 from twitter.common import log
 from twitter.common.dirutil import safe_mkdtemp
 from twitter.common.log.options import LogOptions

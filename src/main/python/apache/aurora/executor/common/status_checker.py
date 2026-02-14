@@ -14,7 +14,7 @@
 
 from abc import abstractmethod, abstractproperty
 
-from mesos.interface.mesos_pb2 import TaskState
+from pesos.mesos_pb2 import TaskState
 from twitter.common import log
 from twitter.common.lang import Interface
 from twitter.common.metrics import Observable
@@ -22,7 +22,7 @@ from twitter.common.metrics import Observable
 
 class StatusResult(object):
   """
-    Encapsulates a reason for failure and a status value from mesos.interface.mesos_pb2.TaskStatus.
+    Encapsulates a reason for failure and a status value from pesos.mesos_pb2.TaskStatus.
     As mesos 0.20.0 uses protobuf 2.5.0, see the EnumTypeWrapper[1] docs for more information.
 
     https://code.google.com/p/protobuf/source/browse/tags/2.5.0/

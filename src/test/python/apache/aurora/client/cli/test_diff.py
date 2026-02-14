@@ -12,7 +12,7 @@
 # limitations under the License.
 #
 
-from mock import Mock, call, patch
+from unittest.mock import Mock, call, patch
 from pystachio import Empty
 
 from apache.aurora.client.cli import EXIT_OK

@@ -12,30 +12,20 @@
 # limitations under the License.
 #
 
-import os
 
-
-python_library(
+python_sources(
   name = '_executor',
-  sources = rglobs('*.py'),
+  sources = ['*.py', '**/*.py'],
   dependencies = [
-    '3rdparty/python:mesos.interface',
-    '3rdparty/python:pex',
+    '3rdparty/python#pesos',
+    '3rdparty/python#pex',
     # To prevent an alpha version of protobuf from being pulled down by pants we
     # specify protobuf here. See AURORA-1128 for more details.
-    '3rdparty/python:protobuf',
-    '3rdparty/python:psutil',
-    '3rdparty/python:pystachio',
-    '3rdparty/python:twitter.common.app',
-    '3rdparty/python:twitter.common.concurrent',
-    '3rdparty/python:twitter.common.dirutil',
-    '3rdparty/python:twitter.common.exceptions',
-    '3rdparty/python:twitter.common.lang',
-    '3rdparty/python:twitter.common.log',
-    '3rdparty/python:twitter.common.metrics',
-    '3rdparty/python:twitter.common.quantity',
-    '3rdparty/python:twitter.common.string',
-    '3rdparty/python:twitter.common.zookeeper',
+    '3rdparty/python#protobuf',
+    '3rdparty/python#psutil',
+    '3rdparty/python#pystachio',
+    'src/main/python/twitter/common:common_sources',
+    'src/main/python/twitter/common/zookeeper',
     'api/src/main/thrift/org/apache/aurora/gen',
     'src/main/python/apache/aurora/common',
     'src/main/python/apache/aurora/config',
@@ -46,30 +36,23 @@ python_library(
   ],
 )
 
-python_binary(
+pex_binary(
   name = 'thermos_executor',
   entry_point = 'apache.aurora.executor.bin.thermos_executor_main:proxy_main',
-  always_write_cache = True,
   dependencies = [
     ':_executor',
     # TODO(ksweeney): This violates the rule that every library export the same deps as its
     # contained binaries.
-    '3rdparty/python:mesos.executor',
+    '3rdparty/python#pesos',
   ],
   # The binary can only build when the native Mesos dependency has been prefetched. This tag
   # allows us to skip this target on development machines if necessary.
   tags=['mesos-native']
 )
 
-python_library(
+python_sources(
   name = 'executor',
   dependencies = [
     ':_executor',
   ],
-  provides = setup_py(
-    name = 'apache.aurora.executor',
-    version = open(os.path.join(get_buildroot(), '.auroraversion')).read().strip().upper(),
-  ).with_binaries(
-    thermos_executor = ':thermos_executor',
-  )
 )

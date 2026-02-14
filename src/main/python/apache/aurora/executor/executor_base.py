@@ -12,7 +12,8 @@
 # limitations under the License.
 #
 
-from mesos.interface import Executor, mesos_pb2
+from mesos.interface import Executor
+from pesos.vendor.mesos import mesos_pb2
 from twitter.common import log
 
 

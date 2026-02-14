@@ -11,8 +11,15 @@
 # limitations under the License.
 #
 FROM --platform=linux/amd64 centos:7
-ENV LANG en_US.UTF-8
-ENV LC_ALL en_US.UTF-8
+ENV LANG=en_US.UTF-8
+ENV LC_ALL=en_US.UTF-8
+# CentOS 7.9.2009(EOL) is the latest version available in the vault
+RUN sed -i -e '/^mirrorlist/d;/^#baseurl=/{s,^#,,;s,/mirror,/vault,;}' /etc/yum.repos.d/CentOS*.repo
+
+RUN yum -y upgrade --exclude 'kernel*' \
+    && yum -y install centos-release-scl-rh \
+    && sed -i -e '/^mirrorlist/d;/^#baseurl=/{s,^#,,;s,/mirror,/vault,;}' /etc/yum.repos.d/CentOS-SCLo*.repo
+
 RUN yum update -y
 RUN yum install -y \
     make \
@@ -23,15 +30,18 @@ RUN yum install -y \
     flex \
     gcc \
     gcc-c++ \
-    java-1.8.0-openjdk-devel \
+    java-11-openjdk-headless \
     krb5-devel \
     libcurl-devel \
     libffi-devel \
     openssl \
     openssl-devel \
     patch \
-    python \
-    python-devel \
+    python2-devel \
+    rh-python38-python \
+    rh-python38-python-devel \
+    rh-python38-python-pip \
+    rh-python38-python-wheel \
     subversion-devel \
     tar \
     unzip \
@@ -39,8 +49,12 @@ RUN yum install -y \
     which \
     zlib-devel
 
-# Crude workaround for https://github.com/gradle/gradle/issues/1782
-RUN mkdir -p /usr/lib/jvm/java-8-openjdk-amd64/jre/lib/security
-RUN ln -s /etc/pki/java/cacerts /usr/lib/jvm/java-8-openjdk-amd64/jre/lib/security/cacerts
+RUN /usr/bin/ln -sfT /opt/rh/rh-python38/root/usr/bin/python3 /usr/bin/python \
+      && /usr/bin/ln -sfT /opt/rh/rh-python38/root/usr/bin/python3 /usr/bin/python3 \
+      && /usr/bin/ln -sfT /opt/rh/rh-python38/root/usr/bin/python3.8 /usr/bin/python3.8
+
+ENV LC_ALL=en_US.utf8
+ENV JAVA_HOME=/usr/lib/jvm/java-11-openjdk
 
 ADD build.sh /build.sh
+ADD build_wheels.sh /build_wheels.sh

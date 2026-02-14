@@ -61,6 +61,9 @@ EXIT_AUTH_ERROR = 30
 
 try:
   __version__ = pkg_resources.resource_string(__name__, '.auroraversion')
+  if isinstance(__version__, bytes):
+    __version__ = __version__.decode('utf-8')
+  __version__ = __version__.strip()
 except IOError:
   __version__ = 'Unknown'
 
@@ -321,14 +324,14 @@ class CommandLine(AbstractClass):
       context.print_err(c.msg)
       return c.code
     except SchedulerProxy.NotRetriableError as e:
-      context.print_err(e.message)
+      context.print_err(getattr(e, 'message', str(e)))
       return EXIT_NETWORK_ERROR
     except SchedulerProxy.TimeoutError as e:
-      context.print_err(e.message)
+      context.print_err(getattr(e, 'message', str(e)))
       return EXIT_TIMEOUT
     except AuroraClientAPI.Error as e:
       # TODO(wfarner): Generalize this error type in the contract of noun and verb implementations.
-      context.print_err("Fatal error running command: %s" % e.message)
+      context.print_err("Fatal error running command: %s" % getattr(e, 'message', str(e)))
       context.print_err(traceback.format_exc())
       return EXIT_UNKNOWN_ERROR
 

@@ -11,7 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import mock
+from unittest import mock
 import pytest
 from twitter.common.contextutil import temporary_file
 
@@ -103,7 +103,7 @@ def test_get_config_with_production_and_tier_is_preemptible():
     api = context.get_api(TEST_CLUSTER.name)
     api.get_tier_configs.return_value = AuroraClientCommandTest.get_mock_tier_configurations()
     with temporary_file() as fp:
-      fp.write(create_test_config())
+      fp.write(create_test_config().encode())
       fp.flush()
       config = context.get_job_config(AuroraClientCommandTest.TEST_JOBKEY, fp.name)
       assert not config.job().taskConfig.production
@@ -117,7 +117,7 @@ def test_get_config_with_production_and_tier_is_preferred():
     api = context.get_api(TEST_CLUSTER.name)
     api.get_tier_configs.return_value = AuroraClientCommandTest.get_mock_tier_configurations()
     with temporary_file() as fp:
-      fp.write(create_test_config("production='true',"))
+      fp.write(create_test_config("production='true',").encode())
       fp.flush()
       config = context.get_job_config(AuroraClientCommandTest.TEST_JOBKEY, fp.name)
       assert config.job().taskConfig.production
@@ -131,7 +131,7 @@ def test_get_config_with_production_and_tier_resets_production():
     api = context.get_api(TEST_CLUSTER.name)
     api.get_tier_configs.return_value = AuroraClientCommandTest.get_mock_tier_configurations()
     with temporary_file() as fp:
-      fp.write(create_test_config("production='true', tier='revocable',"))
+      fp.write(create_test_config("production='true', tier='revocable',").encode())
       fp.flush()
       config = context.get_job_config(AuroraClientCommandTest.TEST_JOBKEY, fp.name)
       assert not config.job().taskConfig.production
@@ -145,7 +145,7 @@ def test_get_config_with_production_and_tier_sets_production():
     api = context.get_api(TEST_CLUSTER.name)
     api.get_tier_configs.return_value = AuroraClientCommandTest.get_mock_tier_configurations()
     with temporary_file() as fp:
-      fp.write(create_test_config("tier='preferred',"))
+      fp.write(create_test_config("tier='preferred',").encode())
       fp.flush()
       config = context.get_job_config(AuroraClientCommandTest.TEST_JOBKEY, fp.name)
       assert config.job().taskConfig.production

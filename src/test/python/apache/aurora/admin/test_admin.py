@@ -14,7 +14,7 @@
 
 import contextlib
 
-from mock import PropertyMock, call, create_autospec, patch
+from unittest.mock import PropertyMock, call, create_autospec, patch
 
 from apache.aurora.admin.admin import (
     get_scheduler,
@@ -192,30 +192,30 @@ class TestIncreaseQuotaCommand(AuroraClientCommandTest):
         patch('apache.aurora.admin.admin.CLUSTERS', new=self.TEST_CLUSTERS)
     ) as (_, mock_make_admin_client, _):
 
-      api = mock_make_admin_client.return_value
-      role = 'test_role'
-      api.get_quota.return_value = self.create_response(
-          ResourceAggregate(resources=frozenset([
+        api = mock_make_admin_client.return_value
+        role = 'test_role'
+        api.get_quota.return_value = self.create_response(
+          ResourceAggregate(resources=(
               Resource(numCpus=20.0),
               Resource(ramMb=4000),
-              Resource(diskMb=6000)])),
-          ResourceAggregate(resources=frozenset([
+              Resource(diskMb=6000))),
+            ResourceAggregate(resources=(
               Resource(numCpus=15.0),
               Resource(ramMb=2000),
-              Resource(diskMb=3000)])),
-          ResourceAggregate(resources=frozenset([
+              Resource(diskMb=3000))),
+            ResourceAggregate(resources=(
               Resource(numCpus=6.0),
               Resource(ramMb=200),
-              Resource(diskMb=600)])),
-      )
-      api.set_quota.return_value = self.create_simple_success_response()
+              Resource(diskMb=600))),
+        )
+        api.set_quota.return_value = self.create_simple_success_response()
 
-      increase_quota([self.TEST_CLUSTER, role, '4.0', '1MB', '1MB'])
+        increase_quota([self.TEST_CLUSTER, role, '4.0', '1MB', '1MB'])
 
-      api.set_quota.assert_called_with(role, 24.0, 4001, 6001)
-      assert isinstance(api.set_quota.call_args[0][1], float)
-      assert isinstance(api.set_quota.call_args[0][2], int)
-      assert isinstance(api.set_quota.call_args[0][3], int)
+        api.set_quota.assert_called_with(role, 24.0, 4001, 6001)
+        assert isinstance(api.set_quota.call_args[0][1], float)
+        assert isinstance(api.set_quota.call_args[0][2], int)
+        assert isinstance(api.set_quota.call_args[0][3], int)
 
 
 class TestSetQuotaCommand(AuroraClientCommandTest):

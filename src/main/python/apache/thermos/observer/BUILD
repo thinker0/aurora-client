@@ -12,31 +12,24 @@
 # limitations under the License.
 #
 
-import os
-
 
 resources(
   name = 'ui',
-  sources = zglobs('**/assets/*', '**/*.tpl'),
+  sources = ['**/assets/*', '**/*.tpl'],
 )
 
-python_library(
+python_sources(
   name = 'observer',
-  sources = rglobs('*.py'),
+  sources = ['*.py', '**/*.py'],
   dependencies = [
-    '3rdparty/python:CherryPy',
-    '3rdparty/python:expiringdict',
-    '3rdparty/python:redis-py-cluster',
-    '3rdparty/python:bottle',
-    '3rdparty/python:mako',
-    '3rdparty/python:pex',
-    '3rdparty/python:pystachio',
-    '3rdparty/python:twitter.common.exceptions',
-    '3rdparty/python:twitter.common.http',
-    '3rdparty/python:twitter.common.lang',
-    '3rdparty/python:twitter.common.log',
-    '3rdparty/python:twitter.common.metrics',
-    '3rdparty/python:twitter.common.quantity',
+    '3rdparty/python#CherryPy',
+    '3rdparty/python#expiringdict',
+    '3rdparty/python#redis-py-cluster',
+    '3rdparty/python#bottle',
+    '3rdparty/python#mako',
+    '3rdparty/python#pex',
+    '3rdparty/python#pystachio',
+    'src/main/python/twitter/common:common_sources',
     'api/src/main/thrift/org/apache/thermos',
 
     # covering libraries
@@ -46,9 +39,4 @@ python_library(
 
     ':ui',
   ],
-  provides = setup_py(
-    name = 'apache.thermos.observer',
-    version = open(os.path.join(get_buildroot(), '.auroraversion')).read().strip().upper(),
-    description = 'The Thermos observer web interface libraries.',
-  ),
 )

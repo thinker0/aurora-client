@@ -20,7 +20,7 @@ import threading
 import time
 import traceback
 
-from mesos.interface.mesos_pb2 import TaskState
+from pesos.mesos_pb2 import TaskState
 from pystachio import Environment, String
 from twitter.common import log
 from twitter.common.exceptions import ExceptionalThread

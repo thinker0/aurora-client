@@ -17,6 +17,17 @@ from numbers import Number
 
 from gen.apache.aurora.api.ttypes import Resource
 
+# Make thrift Resource hashable for set/dict usage in Python 3.
+if Resource.__hash__ is None:
+  def _resource_hash(self):
+    return hash((
+        getattr(self, 'numCpus', None),
+        getattr(self, 'ramMb', None),
+        getattr(self, 'diskMb', None),
+        getattr(self, 'namedPort', None),
+        getattr(self, 'numGpus', None)))
+  Resource.__hash__ = _resource_hash
+
 ResourceDetails = namedtuple('ResourceDetails', ['resource_type', 'value'])
 
 

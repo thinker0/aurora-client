@@ -14,7 +14,7 @@
 
 import contextlib
 
-from mock import Mock, patch
+from unittest.mock import Mock, patch
 from twitter.common.contextutil import temporary_file
 
 from apache.aurora.admin.host_maintenance import HostMaintenance
@@ -150,7 +150,7 @@ class TestMaintenanceCommands(AuroraClientCommandTest):
               return_value=mock_vector),
         patch('apache.aurora.admin.maintenance.CLUSTERS', new=self.TEST_CLUSTERS),
         patch('apache.aurora.admin.maintenance.parse_script', return_value=mock_callback),
-        patch('threading._Event.wait'),
+        patch('threading.Event.wait'),
         patch('twitter.common.app.get_options', return_value=mock_options)):
       host_drain([self.TEST_CLUSTER])
 
@@ -185,7 +185,7 @@ class TestMaintenanceCommands(AuroraClientCommandTest):
         patch('apache.aurora.client.api.sla.Sla.get_domain_uptime_vector',
               return_value=mock_vector),
         patch('apache.aurora.admin.maintenance.CLUSTERS', new=self.TEST_CLUSTERS),
-        patch('threading._Event.wait'),
+        patch('threading.Event.wait'),
         patch('twitter.common.app.get_options', return_value=mock_options)):
       host_drain([self.TEST_CLUSTER])
 
@@ -214,7 +214,7 @@ class TestMaintenanceCommands(AuroraClientCommandTest):
           patch('apache.aurora.client.api.sla.Sla.get_domain_uptime_vector',
                 return_value=mock_vector),
           patch('apache.aurora.admin.maintenance.CLUSTERS', new=self.TEST_CLUSTERS),
-          patch('threading._Event.wait'),
+          patch('threading.Event.wait'),
           patch('twitter.common.app.get_options', return_value=mock_options)):
         host_drain([self.TEST_CLUSTER])
 
@@ -246,7 +246,7 @@ class TestMaintenanceCommands(AuroraClientCommandTest):
                 return_value=mock_vector),
           patch('apache.aurora.admin.maintenance.CLUSTERS', new=self.TEST_CLUSTERS),
           patch('apache.aurora.admin.admin_util.log_admin_message'),
-          patch('threading._Event.wait', return_value=mock_wait),
+          patch('threading.Event.wait', return_value=mock_wait),
           patch('twitter.common.app.get_options', return_value=mock_options)
       ) as (_, _, _, log, _, _):
 
@@ -281,7 +281,7 @@ class TestMaintenanceCommands(AuroraClientCommandTest):
         patch('apache.aurora.client.api.sla.Sla.get_domain_uptime_vector',
               return_value=create_empty_sla_results()),
         patch('apache.aurora.admin.maintenance.CLUSTERS', new=self.TEST_CLUSTERS),
-        patch('threading._Event.wait'),
+        patch('threading.Event.wait'),
         patch('twitter.common.app.get_options', return_value=mock_options)):
 
       host_drain([self.TEST_CLUSTER])

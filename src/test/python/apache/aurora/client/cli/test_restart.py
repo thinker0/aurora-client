@@ -15,7 +15,7 @@ import contextlib
 import functools
 
 import pytest
-from mock import call, create_autospec, patch
+from unittest.mock import call, create_autospec, patch
 from twitter.common.contextutil import temporary_file
 
 from apache.aurora.client.api.health_check import StatusHealthCheck
@@ -28,6 +28,25 @@ from apache.aurora.common.aurora_job_key import AuroraJobKey
 from .util import AuroraClientCommandTest, FakeAuroraCommandContext, IOMock, mock_verb_options
 
 from gen.apache.aurora.api.ttypes import JobKey, PopulateJobResult, Result, TaskConfig
+
+# Provide contextlib.nested compatibility for Python 3.
+if not hasattr(contextlib, 'nested'):
+  class _NestedContext:
+    def __init__(self, *managers):
+      self._managers = managers
+      self._stack = None
+
+    def __enter__(self):
+      self._stack = contextlib.ExitStack()
+      return tuple(self._stack.enter_context(mgr) for mgr in self._managers)
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+      return self._stack.__exit__(exc_type, exc_val, exc_tb)
+
+  def nested(*managers):
+    return _NestedContext(*managers)
+
+  contextlib.nested = nested
 
 
 class TestRestartJobCommand(AuroraClientCommandTest):
@@ -46,7 +65,7 @@ class TestRestartJobCommand(AuroraClientCommandTest):
 
     with pytest.raises(Context.CommandError) as e:
       command.execute(fake_context)
-      assert e.message == "Invalid instance parameter: [1]"
+    assert e.value.msg == "Invalid instance parameter: [1]"
 
   def test_restart_opens_url(self):
     command = RestartCommand()
@@ -104,10 +123,10 @@ class TestRestartCommand(AuroraClientCommandTest):
         patch('apache.aurora.client.api.instance_watcher.StatusHealthCheck',
             return_value=mock_health_check),
         patch('time.time', side_effect=functools.partial(self.fake_time, self)),
-        patch('threading._Event.wait')
+        patch('threading.Event.wait')
     ):
       with temporary_file() as fp:
-        fp.write(self.get_valid_config())
+        fp.write(self.get_valid_config().encode())
         fp.flush()
         cmd = AuroraCommandLine()
         cmd.execute(['job', 'restart', '--batch-size=5', 'west/bozo/test/hello',
@@ -133,7 +152,7 @@ class TestRestartCommand(AuroraClientCommandTest):
         patch('apache.aurora.client.api.instance_watcher.StatusHealthCheck',
             return_value=mock_health_check),
         patch('time.time', side_effect=functools.partial(self.fake_time, self)),
-        patch('threading._Event.wait')
+        patch('threading.Event.wait')
     ):
       cmd = AuroraCommandLine()
       cmd.execute(['job', 'restart', '--batch-size=5', 'west/bozo/test/hello'])
@@ -154,10 +173,10 @@ class TestRestartCommand(AuroraClientCommandTest):
         patch('apache.aurora.client.api.instance_watcher.StatusHealthCheck',
             return_value=mock_health_check),
         patch('time.time', side_effect=functools.partial(self.fake_time, self)),
-        patch('threading._Event.wait')
+        patch('threading.Event.wait')
     ):
       with temporary_file() as fp:
-        fp.write(self.get_valid_config())
+        fp.write(self.get_valid_config().encode())
         fp.flush()
         cmd = AuroraCommandLine()
         result = cmd.execute(['job', 'restart', '--batch-size=5', '--max-total-failures=-1',
@@ -177,9 +196,9 @@ class TestRestartCommand(AuroraClientCommandTest):
         patch('apache.aurora.client.api.instance_watcher.StatusHealthCheck',
             return_value=mock_health_check),
         patch('time.time', side_effect=functools.partial(self.fake_time, self)),
-        patch('threading._Event.wait')):
+        patch('threading.Event.wait')):
       with temporary_file() as fp:
-        fp.write(self.get_valid_config())
+        fp.write(self.get_valid_config().encode())
         fp.flush()
         cmd = AuroraCommandLine()
         result = cmd.execute(['job', 'restart', '--batch-size=5', 'west/bozo/test/hello',
@@ -203,9 +222,9 @@ class TestRestartCommand(AuroraClientCommandTest):
         patch('apache.aurora.client.api.instance_watcher.StatusHealthCheck',
             return_value=mock_health_check),
         patch('time.time', side_effect=functools.partial(self.fake_time, self)),
-        patch('threading._Event.wait')):
+        patch('threading.Event.wait')):
       with temporary_file() as fp:
-        fp.write(self.get_valid_config())
+        fp.write(self.get_valid_config().encode())
         fp.flush()
         cmd = AuroraCommandLine()
         result = cmd.execute(['job', 'restart', '--batch-size=5', 'west/bozo/test/hello/1-3',
@@ -232,9 +251,9 @@ class TestRestartCommand(AuroraClientCommandTest):
         patch('apache.aurora.client.api.instance_watcher.StatusHealthCheck',
             return_value=mock_health_check),
         patch('time.time', side_effect=functools.partial(self.fake_time, self)),
-        patch('threading._Event.wait')):
+        patch('threading.Event.wait')):
       with temporary_file() as fp:
-        fp.write(self.get_valid_config())
+        fp.write(self.get_valid_config().encode())
         fp.flush()
         cmd = AuroraCommandLine()
         result = cmd.execute(['job', 'restart', '--batch-size=5', 'west/bozo/test/hello',
@@ -275,14 +294,14 @@ class TestRestartCommand(AuroraClientCommandTest):
         patch('apache.aurora.client.api.instance_watcher.StatusHealthCheck',
             return_value=mock_health_check),
         patch('time.time', side_effect=functools.partial(self.fake_time, self)),
-        patch('threading._Event.wait'),
+        patch('threading.Event.wait'),
         patch('apache.aurora.client.cli.context.AuroraCommandContext.print_out',
             side_effect=self.mock_print_out),
         patch('apache.aurora.client.cli.context.AuroraCommandContext.print_err',
             side_effect=self.mock_print_err)
     ):
       with temporary_file() as fp:
-        fp.write(self.get_valid_config())
+        fp.write(self.get_valid_config().encode())
         fp.flush()
         cmd = AuroraCommandLine()
         cmd.execute(['job', 'restart', '--batch-size=5', 'west/bozo/test/hello',
@@ -306,9 +325,9 @@ class TestRestartCommand(AuroraClientCommandTest):
             side_effect=self.mock_print_out),
         patch('apache.aurora.client.cli.context.AuroraCommandContext.print_err',
             side_effect=self.mock_print_err),
-        patch('threading._Event.wait')):
+        patch('threading.Event.wait')):
       with temporary_file() as fp:
-        fp.write(self.get_valid_config())
+        fp.write(self.get_valid_config().encode())
         fp.flush()
         cmd = AuroraCommandLine()
         cmd.execute(['job', 'restart', '--batch-size=5', 'west/bozo/test/hello',

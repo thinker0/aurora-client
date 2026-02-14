@@ -117,7 +117,7 @@ class InstanceWatcher(object):
 
   def _create_query(self, instance_ids):
     query = TaskQuery()
-    query.jobKeys = set([self._job_key])
-    query.statuses = set([ScheduleStatus.RUNNING])
+    query.jobKeys = [self._job_key]
+    query.statuses = {ScheduleStatus.RUNNING}
     query.instanceIds = instance_ids
     return query

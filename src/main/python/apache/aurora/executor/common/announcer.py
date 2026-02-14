@@ -20,7 +20,7 @@ from abc import abstractmethod
 from kazoo.client import KazooClient
 from kazoo.retry import KazooRetry
 from kazoo.security import make_acl, make_digest_acl_credential
-from mesos.interface import mesos_pb2
+from pesos.vendor.mesos import mesos_pb2
 from twitter.common import app, log
 from twitter.common.concurrent.deferred import defer
 from twitter.common.exceptions import ExceptionalThread

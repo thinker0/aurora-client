@@ -13,8 +13,8 @@
 #
 import unittest
 
-import mock
-from mock import create_autospec
+from unittest import mock
+from unittest.mock import create_autospec
 
 from apache.aurora.client.api.job_monitor import JobMonitor
 from apache.aurora.common.aurora_job_key import AuroraJobKey

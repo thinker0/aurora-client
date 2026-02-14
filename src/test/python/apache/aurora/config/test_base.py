@@ -135,14 +135,14 @@ jobs = 1234
 def test_empty_config():
   with pytest.raises(AuroraConfig.InvalidConfig):
     with temporary_file() as fp:
-      fp.write(UNDERSPECIFIED_MESOS_CONFIG)
+      fp.write(UNDERSPECIFIED_MESOS_CONFIG.encode('utf-8'))
       fp.flush()
       AuroraConfig.load(fp.name)
 
 
 def test_simple_config():
   with temporary_file() as fp:
-    fp.write(MESOS_CONFIG)
+    fp.write(MESOS_CONFIG.encode('utf-8'))
     fp.flush()
     proxy_config1 = AuroraConfig.load(fp.name)
     proxy_config2 = AuroraConfig.load(fp.name, name="hello_world")

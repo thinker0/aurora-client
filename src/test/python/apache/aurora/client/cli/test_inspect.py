@@ -15,7 +15,18 @@
 import contextlib
 import json
 
-from mock import patch
+from unittest.mock import patch
+
+if not hasattr(contextlib, 'nested'):
+  from contextlib import ExitStack, contextmanager
+  def _nested(*contexts):
+    @contextmanager
+    def _manager():
+      with ExitStack() as stack:
+        entered = [stack.enter_context(ctx) for ctx in contexts]
+        yield tuple(entered)
+    return _manager()
+  contextlib.nested = _nested
 
 from apache.aurora.client.cli.client import AuroraCommandLine
 from apache.aurora.config import AuroraConfig

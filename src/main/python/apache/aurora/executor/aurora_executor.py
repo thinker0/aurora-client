@@ -16,7 +16,7 @@ import threading
 import time
 import traceback
 
-from mesos.interface import mesos_pb2
+from pesos.vendor.mesos import mesos_pb2
 from twitter.common import log
 from twitter.common.concurrent import Timeout, deadline, defer
 from twitter.common.metrics import Observable

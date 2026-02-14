@@ -20,35 +20,39 @@ BUILDROOT=$HERE/../..
 VENV_DIR=build-support/python/pycharm.venv
 PROJECT_NAME=${PWD##*/}
 
-function read_pants_option() {
-  local -r scope="$1"
-  local -r name="$2"
-
-  ./pants options --output-format=json --scope="${scope}" --name="${name}" | python <(cat << EOF
-import json, sys
-
-print(json.load(sys.stdin)["${scope}.${name}"]["value"])
-EOF
-)
-}
-
 pushd "$BUILDROOT"
-  ./pants dependencies --external-only src/test/python:: | sort -u > requirements.txt
-  ./pants setup-py api/src/main/thrift/org/apache/aurora/gen
-  ./pants setup-py api/src/main/thrift/org/apache/thermos
+  # Build a requirements.txt from repo-pinned requirements files.
+  rm -f requirements.txt
+  for req in 3rdparty/python/requirements*.txt; do
+    if [ -f "$req" ]; then
+      cat "$req" >> requirements.txt
+      echo "" >> requirements.txt
+    fi
+  done
+  sort -u requirements.txt -o requirements.txt
 
+  chmod -R u+w "$VENV_DIR" 2>/dev/null || true
   rm -rf "$VENV_DIR"
   ./build-support/virtualenv "$VENV_DIR"
   source $VENV_DIR/bin/activate
-    python -m pip install -U pip
-    python -m pip install -r requirements.txt
-    python -m pip install -f dist \
-      apache.aurora.thrift==$(<.auroraversion) \
-      apache.thermos.thrift==$(<.auroraversion)
-    # Use same py.test version embedded into pants
-    python -m pip install \
-      $(read_pants_option pytest requirements) \
-      $(read_pants_option pytest cov_requirements)
+    python3 -m pip install -U pip
+    # Install pinned requirements without dependency resolution to avoid conflicts,
+    # then install known transitive deps explicitly.
+    python3 -m pip install --no-deps -r requirements.txt -f 3rdparty/python/wheels
+    python3 -m pip install --no-deps -f 3rdparty/python/wheels \
+      pykerberos==1.2.1 \
+      redis==3.5.3 \
+      mesos.interface==0.21.1 \
+      compactor==0.2.2 \
+      futures==2.1.6 \
+      trollius==2.1.post2 \
+      tornado==4.1
+    # Match pytest plugins observed in Pants test runs
+    python3 -m pip install \
+      pytest==7.0.1 \
+      pytest-cov==3.0.0 \
+      pytest-xdist==2.5.0 \
+      pytest-forked==1.6.0
   deactivate
 popd
 

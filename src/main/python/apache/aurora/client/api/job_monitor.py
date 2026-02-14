@@ -44,7 +44,10 @@ class JobMonitor(object):
     self._status_helper = StatusHelper(self._scheduler, self.create_query)
 
   def iter_tasks(self, instances):
-    tasks = self._status_helper.get_tasks(instances)
+    try:
+      tasks = self._status_helper.get_tasks(instances)
+    except StopIteration:
+      return
     for task in tasks:
       yield task
 

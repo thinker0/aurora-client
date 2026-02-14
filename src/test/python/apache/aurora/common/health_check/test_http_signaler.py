@@ -14,16 +14,17 @@
 
 import unittest
 from socket import timeout as SocketTimeout
-
-import mox
+from unittest import mock
 from twitter.common.lang import Compatibility
 
 from apache.aurora.common.health_check.http_signaler import HttpSignaler
 
 if Compatibility.PY3:
   import urllib.request as urllib_request
+  from urllib.error import HTTPError
 else:
   import urllib2 as urllib_request
+  from urllib2 import HTTPError
 
 
 class OpenedURL(object):
@@ -44,68 +45,57 @@ class OpenedURL(object):
 class TestHttpSignaler(unittest.TestCase):
   PORT = 12345
 
-  def setUp(self):
-    self._mox = mox.Mox()
-
-  def tearDown(self):
-    self._mox.UnsetStubs()
-    self._mox.VerifyAll()
-
   def test_all_calls_ok(self):
-    self._mox.StubOutWithMock(urllib_request, 'urlopen')
-    urllib_request.urlopen(
-      'http://localhost:%s/quitquitquit' % self.PORT, '', timeout=1.0).AndReturn(OpenedURL(''))
-    urllib_request.urlopen(
-      'http://localhost:%s/abortabortabort' % self.PORT, '', timeout=1.0).AndReturn(OpenedURL(''))
+    with mock.patch.object(urllib_request, 'urlopen') as urlopen:
+      urlopen.side_effect = [OpenedURL(''), OpenedURL('')]
 
-    self._mox.ReplayAll()
+      signaler = HttpSignaler(self.PORT)
+      assert signaler('/quitquitquit', use_post_method=True) == (True, None)
+      assert signaler('/abortabortabort', use_post_method=True) == (True, None)
 
-    signaler = HttpSignaler(self.PORT)
-    assert signaler('/quitquitquit', use_post_method=True) == (True, None)
-    assert signaler('/abortabortabort', use_post_method=True) == (True, None)
+      urlopen.assert_has_calls([
+        mock.call('http://localhost:%s/quitquitquit' % self.PORT, b'', timeout=1.0),
+        mock.call('http://localhost:%s/abortabortabort' % self.PORT, b'', timeout=1.0),
+      ])
 
   def test_health_checks(self):
-    self._mox.StubOutWithMock(urllib_request, 'urlopen')
-    urllib_request.urlopen(
-      'http://localhost:%s/health' % self.PORT, None, timeout=1.0).AndReturn(OpenedURL('ok'))
-    urllib_request.urlopen(
-      'http://localhost:%s/health' % self.PORT, None, timeout=1.0).AndReturn(OpenedURL('not ok'))
-    urllib_request.urlopen(
-      'http://localhost:%s/health' % self.PORT, None, timeout=1.0).AndReturn(
-          OpenedURL('not ok', code=200))
-    urllib_request.urlopen(
-      'http://localhost:%s/health' % self.PORT, None, timeout=1.0).AndReturn(
-          OpenedURL('ok', code=400))
-    urllib_request.urlopen(
-      'http://localhost:%s/health' % self.PORT, None, timeout=1.0).AndRaise(
-          urllib_request.HTTPError('', 501, '', None, None))
-    urllib_request.urlopen(
-      'http://localhost:%s/health' % self.PORT, None, timeout=1.0).AndReturn(
-          OpenedURL('ok', code=200))
-    urllib_request.urlopen(
-      'http://localhost:%s/random/endpoint' % self.PORT, None, timeout=1.0).AndReturn(
-          OpenedURL('ok'))
+    with mock.patch.object(urllib_request, 'urlopen') as urlopen:
+      urlopen.side_effect = [
+        OpenedURL('ok'),
+        OpenedURL('not ok'),
+        OpenedURL('not ok', code=200),
+        OpenedURL('ok', code=400),
+        HTTPError('', 501, '', None, None),
+        OpenedURL('ok', code=200),
+        OpenedURL('ok'),
+      ]
 
-    self._mox.ReplayAll()
+      signaler = HttpSignaler(self.PORT)
+      assert signaler('/health', expected_response='ok') == (True, None)
+      assert signaler('/health', expected_response='ok') == (
+          False, 'Response differs from expected response (expected "ok", got "not ok")')
+      assert signaler('/health', expected_response_code=200) == (True, None)
+      assert signaler('/health', expected_response_code=200) == (
+          False, 'Response code differs from expected response (expected 200, got 400)')
+      assert signaler('/health', expected_response_code=200) == (
+          False, 'Response code differs from expected response (expected 200, got 501)')
+      assert signaler('/health', expected_response='ok', expected_response_code=200) == (True, None)
+      assert signaler('/random/endpoint', expected_response='ok') == (True, None)
 
-    signaler = HttpSignaler(self.PORT)
-    assert signaler('/health', expected_response='ok') == (True, None)
-    assert signaler('/health', expected_response='ok') == (
-        False, 'Response differs from expected response (expected "ok", got "not ok")')
-    assert signaler('/health', expected_response_code=200) == (True, None)
-    assert signaler('/health', expected_response_code=200) == (
-        False, 'Response code differs from expected response (expected 200, got 400)')
-    assert signaler('/health', expected_response_code=200) == (
-        False, 'Response code differs from expected response (expected 200, got 501)')
-    assert signaler('/health', expected_response='ok', expected_response_code=200) == (True, None)
-    assert signaler('/random/endpoint', expected_response='ok') == (True, None)
+      urlopen.assert_has_calls([
+        mock.call('http://localhost:%s/health' % self.PORT, None, timeout=1.0),
+        mock.call('http://localhost:%s/health' % self.PORT, None, timeout=1.0),
+        mock.call('http://localhost:%s/health' % self.PORT, None, timeout=1.0),
+        mock.call('http://localhost:%s/health' % self.PORT, None, timeout=1.0),
+        mock.call('http://localhost:%s/health' % self.PORT, None, timeout=1.0),
+        mock.call('http://localhost:%s/health' % self.PORT, None, timeout=1.0),
+        mock.call('http://localhost:%s/random/endpoint' % self.PORT, None, timeout=1.0),
+      ])
 
   def test_exception(self):
-    self._mox.StubOutWithMock(urllib_request, 'urlopen')
-    urllib_request.urlopen(
-        'http://localhost:%s/health' % self.PORT, None, timeout=1.0).AndRaise(
-            SocketTimeout('Timed out'))
+    with mock.patch.object(urllib_request, 'urlopen') as urlopen:
+      urlopen.side_effect = SocketTimeout('Timed out')
 
-    self._mox.ReplayAll()
-
-    assert not HttpSignaler(self.PORT)('/health', expected_response='ok')[0]
+      assert not HttpSignaler(self.PORT)('/health', expected_response='ok')[0]
+      urlopen.assert_called_once_with(
+          'http://localhost:%s/health' % self.PORT, None, timeout=1.0)

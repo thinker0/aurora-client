@@ -16,7 +16,7 @@ import textwrap
 from copy import deepcopy
 
 import pytest
-from mock import Mock, call
+from unittest.mock import Mock, call
 from pystachio import Empty
 
 from apache.aurora.client.cli import Context
@@ -71,16 +71,16 @@ class TestDiffFormatter(AuroraClientCommandTest):
     if task is None:
       task = cls.create_task_config('foo')
     diff.result = Result(getJobUpdateDiffResult=GetJobUpdateDiffResult(
-        add=set([ConfigGroup(
+        add=(ConfigGroup(
             config=task,
-            instances=frozenset([Range(first=10, last=10), Range(first=12, last=14)]))]),
-        remove=frozenset(),
-        update=frozenset([ConfigGroup(
-            config=task,
-            instances=frozenset([Range(first=11, last=11)]))]),
-        unchanged=frozenset([ConfigGroup(
-            config=task,
-            instances=frozenset([Range(first=0, last=9)]))])
+            instances=(Range(first=10, last=10), Range(first=12, last=14))),),
+        remove=tuple(),
+        update=(ConfigGroup(
+                config=task,
+                instances=(Range(first=11, last=11),)),),
+        unchanged=(ConfigGroup(
+                config=task,
+                instances=(Range(first=0, last=9),)),)
     ))
     return diff
 
@@ -89,12 +89,12 @@ class TestDiffFormatter(AuroraClientCommandTest):
     diff = cls.create_simple_success_response()
     task = cls.create_task_config('foo')
     diff.result = Result(getJobUpdateDiffResult=GetJobUpdateDiffResult(
-        add=frozenset(),
-        remove=frozenset(),
-        update=frozenset(),
-        unchanged=frozenset([ConfigGroup(
+        add=tuple(),
+        remove=tuple(),
+        update=tuple(),
+        unchanged=(ConfigGroup(
             config=task,
-            instances=frozenset([Range(first=0, last=3)]))])
+            instances=(Range(first=0, last=3),)),)
     ))
     return diff
 
@@ -103,7 +103,7 @@ class TestDiffFormatter(AuroraClientCommandTest):
     self._fake_context.get_job_config = Mock(return_value=config)
     formatter = DiffFormatter(self._fake_context, config)
     local_task = self.create_scheduled_tasks()[0].assignedTask.task
-    local_task.constraints = set([Constraint(name='host'), Constraint(name='rack')])
+    local_task.constraints = [Constraint(name='host'), Constraint(name='rack')]
     self._mock_api.get_job_update_diff.return_value = self.get_job_update_diff_result()
 
     formatter.show_job_update_diff(self._mock_options.instance_spec.instance, local_task)
@@ -129,9 +129,9 @@ class TestDiffFormatter(AuroraClientCommandTest):
     self._fake_context.get_job_config = Mock(return_value=config)
     formatter = DiffFormatter(self._fake_context, config)
     local_task = self.create_scheduled_tasks()[0].assignedTask.task
-    local_task.constraints = set([Constraint(name='host'), Constraint(name='rack')])
+    local_task.constraints = [Constraint(name='host'), Constraint(name='rack')]
     remote_task = deepcopy(local_task)
-    remote_task.constraints = set([Constraint(name='rack'), Constraint(name='host')])
+    remote_task.constraints = [Constraint(name='rack'), Constraint(name='host')]
     self._mock_api.get_job_update_diff.return_value = self.get_job_update_diff_result(remote_task)
 
     formatter.show_job_update_diff(self._mock_options.instance_spec.instance, local_task)

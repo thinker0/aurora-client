@@ -13,8 +13,12 @@
 #
 
 import sys
-import thread
 import threading
+
+try:
+  import thread
+except ImportError:
+  import _thread as thread
 
 from twitter.common import app, log
 

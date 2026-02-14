@@ -45,3 +45,9 @@ apache-aurora-*
 aurora-scheduler-*
 scratch/
 *.log
+
+.venv-aurora-admin/
+
+python3.8-uv/
+
+3rdparty/python/wheels

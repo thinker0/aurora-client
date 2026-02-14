@@ -309,6 +309,12 @@ class Sla(object):
     min_instance_count -- Minimum job instance count to consider for domain uptime calculations.
     hosts -- optional list of hostnames to query by.
     """
+    # Backward compatibility for older callers that passed hosts as the second positional arg.
+    if hosts is None and isinstance(min_instance_count, (list, tuple, set)):
+      hosts = list(min_instance_count)
+      min_instance_count = 1
+
+    min_instance_count = int(min_instance_count)
     tasks = self._get_tasks(task_query(hosts=hosts)) if hosts else None
     job_keys = set(job_key_from_scheduled(t, cluster) for t in tasks) if tasks else None
 

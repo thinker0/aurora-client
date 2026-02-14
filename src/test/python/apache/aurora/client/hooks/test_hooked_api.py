@@ -14,7 +14,7 @@
 
 from inspect import getargspec
 
-from mock import Mock, create_autospec
+from unittest.mock import Mock, create_autospec
 
 from apache.aurora.client.api import AuroraClientAPI
 from apache.aurora.client.hooks.hooked_api import HookedAuroraClientAPI, NonHookedAuroraClientAPI
@@ -26,7 +26,7 @@ API_METHODS_WITH_CONFIG_PARAM_ADDED = ('kill_job', 'restart', 'start_cronjob')
 
 
 def pytest_generate_tests(metafunc):
-  if 'method_name' in metafunc.funcargnames:
+  if 'method_name' in getattr(metafunc, 'fixturenames', []):
     metafunc.parametrize('method_name', API_METHODS)
 
 

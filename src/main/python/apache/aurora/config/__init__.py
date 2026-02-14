@@ -67,7 +67,7 @@ class AuroraConfig(object):
     def match_role(job):
       return select_role is None or str(job.role()) == select_role
 
-    bound_jobs = map(maybe_bind, job_list)
+    bound_jobs = list(map(maybe_bind, job_list))
     matches = [j for j in bound_jobs if
                all([match_cluster(j), match_role(j), match_env(j), match_name(j)])]
 

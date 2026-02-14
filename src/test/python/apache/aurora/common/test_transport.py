@@ -17,7 +17,7 @@ from threading import Thread
 
 import pytest
 import requests
-from mock import ANY, Mock, call, create_autospec
+from unittest.mock import ANY, Mock, call, create_autospec
 from requests import exceptions as request_exceptions
 from thrift.protocol import TBinaryProtocol
 from thrift.server import THttpServer
@@ -70,7 +70,7 @@ def test_request_transport_timeout():
   with pytest.raises(TTransport.TTransportException) as execinfo:
     client.getRoleSummary()
 
-  assert execinfo.value.message == 'Timed out talking to http://localhost:12345'
+  assert str(execinfo.value) == 'Timed out talking to http://localhost:12345'
 
   transport.close()
 
@@ -91,7 +91,7 @@ def test_raise_for_status_causes_exception():
     client.getRoleSummary()
 
   assert excinfo.value.type == TTransport.TTransportException.UNKNOWN
-  assert excinfo.value.message.startswith('Unknown error talking to http://localhost:12345')
+  assert str(excinfo.value).startswith('Unknown error talking to http://localhost:12345')
 
   transport.close()
 
@@ -175,7 +175,7 @@ def test_auth_type_valid():
 def test_auth_type_invalid():
   with pytest.raises(TypeError) as e:
     TRequestsTransport('http://localhost:1', auth="auth")
-  assert e.value.message == 'Invalid auth type. Expected: AuthBase but got str'
+  assert str(e.value) == 'Invalid auth type. Expected: AuthBase but got str'
 
 
 def test_requests_transport_session_reuse():

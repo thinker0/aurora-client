@@ -12,7 +12,7 @@
 # limitations under the License.
 #
 
-from mock import call, create_autospec, patch
+from unittest.mock import call, create_autospec, patch
 
 from apache.aurora.client.api.scheduler_client import SchedulerClient
 from apache.aurora.client.cli import EXIT_UNKNOWN_ERROR
@@ -46,7 +46,7 @@ class TestApiFromCLI(AuroraClientCommandTest):
   def create_status_response(cls):
     resp = cls.create_simple_success_response()
     resp.result = Result(
-        scheduleStatusResult=ScheduleStatusResult(tasks=set(cls.create_scheduled_tasks())))
+        scheduleStatusResult=ScheduleStatusResult(tasks=list(cls.create_scheduled_tasks())))
     return resp
 
   @classmethod
@@ -54,7 +54,7 @@ class TestApiFromCLI(AuroraClientCommandTest):
     resp = cls.create_simple_success_response()
     resp.result = Result(
         scheduleStatusResult=ScheduleStatusResult(
-            tasks=set(cls.create_mock_scheduled_task_no_metadata())))
+            tasks=list(cls.create_mock_scheduled_task_no_metadata())))
     return resp
 
   @classmethod

@@ -14,7 +14,7 @@
 
 import textwrap
 
-from mock import patch
+from unittest.mock import patch
 from twitter.common.contextutil import temporary_file
 
 from apache.aurora.client.cli import EXIT_COMMAND_FAILURE
@@ -30,7 +30,7 @@ class TestClientCreateCommand(AuroraClientCommandTest):
     with patch('apache.aurora.client.cli.config.ConfigNoun.create_context',
         return_value=mock_context):
       with temporary_file() as fp:
-        fp.write(self.get_valid_config())
+        fp.write(self.get_valid_config().encode())
         fp.flush()
         cmd = AuroraCommandLine()
         cmd.execute(['config', 'list', fp.name])
@@ -42,7 +42,7 @@ class TestClientCreateCommand(AuroraClientCommandTest):
     with patch('apache.aurora.client.cli.config.ConfigNoun.create_context',
         return_value=mock_context):
       with temporary_file() as fp:
-        fp.write(self.get_invalid_config("blather=..."))
+        fp.write(self.get_invalid_config("blather=...").encode())
         fp.flush()
         cmd = AuroraCommandLine()
         result = cmd.execute(['config', 'list', fp.name])
@@ -77,7 +77,7 @@ class TestClientCreateCommand(AuroraClientCommandTest):
     with patch('apache.aurora.client.cli.config.ConfigNoun.create_context',
         return_value=mock_context):
       with temporary_file() as fp:
-        fp.write(self.get_config_with_no_jobs())
+        fp.write(self.get_config_with_no_jobs().encode())
         fp.flush()
         cmd = AuroraCommandLine()
         cmd.execute(['config', 'list', fp.name])

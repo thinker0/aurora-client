@@ -157,7 +157,7 @@ def test_simple_config():
   assert tti.production is False
   assert tti.priority == 0
   assert tti.maxTaskFailures == 1
-  assert tti.constraints == set()
+  assert set(tti.constraints) == set()
   assert tti.metadata == set()
   assert tti.tier is None
   assert Resource(numCpus=0.1) in list(tti.resources)
@@ -411,7 +411,7 @@ def test_metadata_in_config():
   tti = job.taskConfig
 
   assert len(tti.metadata) == 1
-  pi = iter(tti.metadata).next()
+  pi = next(iter(tti.metadata))
   assert pi.key == 'alpha'
   assert pi.value == '1'
 

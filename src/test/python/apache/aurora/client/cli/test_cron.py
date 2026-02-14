@@ -14,7 +14,7 @@
 
 import contextlib
 
-from mock import call, patch
+from unittest.mock import call, patch
 from twitter.common.contextutil import temporary_file
 
 from apache.aurora.client.base import get_job_page
@@ -36,14 +36,12 @@ class TestCronNoun(AuroraClientCommandTest):
 
   def test_successful_schedule(self):
     mock_context = FakeAuroraCommandContext()
-    with contextlib.nested(
-        patch('apache.aurora.client.cli.cron.CronNoun.create_context', return_value=mock_context)):
-
+    with patch('apache.aurora.client.cli.cron.CronNoun.create_context', return_value=mock_context):
       api = mock_context.get_api('west')
       api.schedule_cron.return_value = self.create_simple_success_response()
       api.get_tier_configs.return_value = self.get_mock_tier_configurations()
       with temporary_file() as fp:
-        fp.write(self.get_valid_cron_config())
+        fp.write(self.get_valid_cron_config().encode())
         fp.flush()
         cmd = AuroraCommandLine()
         cmd.execute(['cron', 'schedule', self.TEST_JOBSPEC, fp.name])
@@ -63,7 +61,7 @@ class TestCronNoun(AuroraClientCommandTest):
       api.schedule_cron.return_value = self.create_error_response()
       api.get_tier_configs.return_value = self.get_mock_tier_configurations()
       with temporary_file() as fp:
-        fp.write(self.get_valid_cron_config())
+        fp.write(self.get_valid_cron_config().encode())
         fp.flush()
         cmd = AuroraCommandLine()
         result = cmd.execute(['cron', 'schedule', 'west/bozo/test/hello', fp.name])
@@ -80,7 +78,7 @@ class TestCronNoun(AuroraClientCommandTest):
     api.get_tier_configs.return_value = self.get_mock_tier_configurations()
     with patch('apache.aurora.client.cli.cron.CronNoun.create_context', return_value=mock_context):
       with temporary_file() as fp:
-        fp.write(self.get_valid_config())
+        fp.write(self.get_valid_config().encode())
         fp.flush()
         cmd = AuroraCommandLine()
         result = cmd.execute(['cron', 'schedule', 'west/bozo/test/hello', fp.name])
@@ -90,7 +88,7 @@ class TestCronNoun(AuroraClientCommandTest):
     mock_context = FakeAuroraCommandContext()
     with patch('apache.aurora.client.cli.cron.CronNoun.create_context', return_value=mock_context):
       with temporary_file() as fp:
-        fp.write(self.get_invalid_cron_config('invalid_clause=oops'))
+        fp.write(self.get_invalid_cron_config('invalid_clause=oops').encode())
         fp.flush()
         cmd = AuroraCommandLine()
         result = cmd.execute(['cron', 'schedule', 'west/bozo/test/hello', fp.name])
@@ -108,7 +106,7 @@ class TestCronNoun(AuroraClientCommandTest):
       api.schedule_cron.return_value = self.create_simple_success_response()
       api.get_tier_configs.return_value = self.get_mock_tier_configurations()
       with temporary_file() as fp:
-        fp.write(self.get_valid_cron_config())
+        fp.write(self.get_valid_cron_config().encode())
         fp.flush()
         cmd = AuroraCommandLine()
         result = cmd.execute(['cron', 'schedule', 'west/bozo/test/hello', fp.name])

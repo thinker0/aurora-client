@@ -64,58 +64,64 @@ function compatible_system_thrift() {
   fi
 }
 
-function run_pants() {
-  pushd "${HERE}/../.." &> /dev/null
-  ./pants --no-colors --no-lock "$@"
-  popd &> /dev/null
+function nproc_count() {
+  if command -v nproc &> /dev/null; then
+    nproc
+  elif command -v getconf &> /dev/null; then
+    getconf _NPROCESSORS_ONLN
+  else
+    echo 1
+  fi
 }
 
-function get_pants_option() {
-  local readonly scope="$1"
-  local readonly name="$2"
+function build_thrift_from_source() {
+  local readonly version="$1"
+  local readonly build_root="${HERE}/.thrift-build/${version}"
+  local readonly install_root="${HERE}/.thrift-install/${version}"
+  local readonly thrift_bin="${install_root}/bin/thrift"
+  local readonly tarball="thrift-${version}.tar.gz"
+  local readonly url="https://archive.apache.org/dist/thrift/${version}/${tarball}"
 
-  run_pants options --output-format=json --scope=${scope} --name=${name} | python2 <(cat << EOF
-from __future__ import print_function
+  if [[ -x "${thrift_bin}" ]]; then
+    echo "${thrift_bin}"
+    return
+  fi
 
-import json
-import sys
+  mkdir -p "${build_root}" "${install_root}"
+  if [[ ! -f "${build_root}/${tarball}" ]]; then
+    wget -O "${build_root}/${tarball}" "${url}"
+  fi
 
+  rm -rf "${build_root}/thrift-${version}"
+  tar --no-same-owner -xzf "${build_root}/${tarball}" -C "${build_root}"
+  pushd "${build_root}/thrift-${version}" &> /dev/null
+  ./configure --prefix="${install_root}" --disable-tests 1>&2
+  make -j"$(nproc_count)" 1>&2
+  make install 1>&2
+  popd &> /dev/null
 
-object = json.load(sys.stdin)
-key = "${name}" if "${scope}" == "GLOBAL" else "${scope}.${name}"
-value = object[key]["value"]
-print(value)
-EOF
-)
+  if [[ -x "${thrift_bin}" ]]; then
+    echo "${thrift_bin}"
+  fi
 }
 
 thrift="$(compatible_system_thrift)"
 if [[ -z "${thrift}" ]]; then
-  readonly pants_thrift_version="$(get_pants_option thrift version)"
-  if [[ "${expected_version}" != "${pants_thrift_version}" ]]; then
-    echo "Pants thrift version ${pants_thrift_version} does not match expected version ${expected_version}!"
-    exit 1
-  fi
-
-  # Bootstrap thrift compiler with pants
-  run_pants --quiet gen --cache-ignore api/src/main/thrift/org/apache/aurora/gen::
-
-  # Without reverse engineering pants custom os-specific path names,
-  # find a suitable thrift compiler
-  readonly pants_cache_dir="$(get_pants_option GLOBAL pants_bootstrapdir)"
-  for candidate in "${pants_cache_dir}"/bin/thrift/*/*/"${expected_version}"/thrift; do
-    if compatible_thrift "${candidate}"; then
-      thrift="${candidate}"
-      break
-    fi
-  done
+  thrift="$(build_thrift_from_source "${expected_version}")"
 
   if ! compatible_thrift "${thrift}"; then
     echo "Failed to find or build a thrift binary compatible with Aurora requirements!"
     exit 1
   fi
 
-  ln -f -s "${thrift}" "${HERE}/thrift"
+  rm -f "${HERE}/thrift"
+  cp -f "${thrift}" "${HERE}/thrift"
+  chmod +x "${HERE}/thrift"
+
+  if [[ -w /usr/bin ]]; then
+    cp -f "${thrift}" /usr/bin/thrift
+    chmod +x /usr/bin/thrift
+  fi
 fi
 
 exec "${thrift}" "$@"

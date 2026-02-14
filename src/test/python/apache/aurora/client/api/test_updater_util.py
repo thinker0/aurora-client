@@ -96,7 +96,7 @@ class TestUpdaterUtil(unittest.TestCase):
                                  max_per_shard_failures=1,
                                  max_total_failures=1,
                                  pulse_interval_secs=threshold - 1))
-    assert 'Pulse interval seconds must be at least %s seconds.' % threshold in e.value.message
+    assert 'Pulse interval seconds must be at least %s seconds.' % threshold in str(e.value)
 
   def test_to_thrift_update_settings_strategy(self):
 
@@ -180,7 +180,7 @@ class TestUpdaterUtil(unittest.TestCase):
 
     assert ('Ambiguous update configuration. Cannot combine '
             'wait_batch_completion with an '
-            'explicit update strategy.' in e.value.message)
+            'explicit update strategy.' in str(e.value))
 
   def test_batch_size_and_update_strategy(self):
 
@@ -196,4 +196,4 @@ class TestUpdaterUtil(unittest.TestCase):
 
     assert ('Ambiguous update configuration. Cannot combine '
             'update strategy with batch size. Please set batch'
-            'size inside of update strategy instead.' in e.value.message)
+            'size inside of update strategy instead.' in str(e.value))

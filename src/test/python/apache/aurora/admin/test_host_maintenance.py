@@ -17,7 +17,7 @@ import textwrap
 import unittest
 from contextlib import contextmanager
 
-import mock
+from unittest import mock
 from twitter.common import log
 from twitter.common.contextutil import temporary_file
 from twitter.common.quantity import Amount, Time
@@ -49,11 +49,9 @@ TEST_HOSTNAMES = [
 
 
 class TestHostMaintenance(unittest.TestCase):
-  @mock.patch("apache.aurora.client.api.AuroraClientAPI.maintenance_status",
-      spec=AuroraClientAPI.maintenance_status)
-  @mock.patch("apache.aurora.client.api.AuroraClientAPI.drain_hosts",
-      spec=AuroraClientAPI.drain_hosts)
-  @mock.patch("threading._Event.wait")
+  @mock.patch("apache.aurora.client.api.AuroraClientAPI.maintenance_status")
+  @mock.patch("apache.aurora.client.api.AuroraClientAPI.drain_hosts")
+  @mock.patch("threading.Event.wait")
   def test_drain_hosts(self, mock_event_wait, mock_drain_hosts, mock_maintenance_status):
     fake_maintenance_status_response = [
         Response(
@@ -105,11 +103,9 @@ class TestHostMaintenance(unittest.TestCase):
         (Hosts(set([TEST_HOSTNAMES[0]])))]
 
   @mock.patch("twitter.common.log.warning", spec=log.warning)
-  @mock.patch("apache.aurora.client.api.AuroraClientAPI.maintenance_status",
-              spec=AuroraClientAPI.maintenance_status)
-  @mock.patch("apache.aurora.client.api.AuroraClientAPI.drain_hosts",
-              spec=AuroraClientAPI.drain_hosts)
-  @mock.patch("threading._Event.wait")
+  @mock.patch("apache.aurora.client.api.AuroraClientAPI.maintenance_status")
+  @mock.patch("apache.aurora.client.api.AuroraClientAPI.drain_hosts")
+  @mock.patch("threading.Event.wait")
   def test_drain_hosts_timed_out_wait(self, _, mock_drain_hosts, mock_maintenance_status, mock_log):
     fake_maintenance_status_response = Response(
         responseCode=ResponseCode.OK,
@@ -137,10 +133,8 @@ class TestHostMaintenance(unittest.TestCase):
         \tHost:us-west-003.example.com\tStatus:SCHEDULED"""))]
 
   @mock.patch("twitter.common.log.warning", spec=log.warning)
-  @mock.patch("apache.aurora.client.api.AuroraClientAPI.maintenance_status",
-      spec=AuroraClientAPI.maintenance_status)
-  @mock.patch("apache.aurora.client.api.AuroraClientAPI.end_maintenance",
-      spec=AuroraClientAPI.end_maintenance)
+  @mock.patch("apache.aurora.client.api.AuroraClientAPI.maintenance_status")
+  @mock.patch("apache.aurora.client.api.AuroraClientAPI.end_maintenance")
   def test_complete_maintenance(self, mock_end_maintenance, mock_maintenance_status, mock_warning):
     mock_maintenance_status.return_value = Response(result=Result(
         maintenanceStatusResult=MaintenanceStatusResult(set([
@@ -157,15 +151,13 @@ class TestHostMaintenance(unittest.TestCase):
     mock_maintenance_status.assert_called_once_with(test_hosts)
     mock_warning.assert_called_once_with('%s is DRAINING or in DRAINED' % TEST_HOSTNAMES[2])
 
-  @mock.patch("apache.aurora.admin.host_maintenance.HostMaintenance._complete_maintenance",
-    spec=HostMaintenance._complete_maintenance)
+  @mock.patch("apache.aurora.admin.host_maintenance.HostMaintenance._complete_maintenance")
   def test_end_maintenance(self, mock_complete_maintenance):
     maintenance = HostMaintenance(DEFAULT_CLUSTER, 'quiet')
     maintenance.end_maintenance(TEST_HOSTNAMES)
     mock_complete_maintenance.assert_called_once_with(Hosts(set(TEST_HOSTNAMES)))
 
-  @mock.patch("apache.aurora.client.api.AuroraClientAPI.start_maintenance",
-      spec=AuroraClientAPI.start_maintenance)
+  @mock.patch("apache.aurora.client.api.AuroraClientAPI.start_maintenance")
   def test_start_maintenance(self, mock_api):
     mock_api.return_value = Response(responseCode=ResponseCode.OK,
         result=Result(startMaintenanceResult=StartMaintenanceResult(statuses=set([HostStatus()]))))
@@ -179,14 +171,10 @@ class TestHostMaintenance(unittest.TestCase):
     maintenance._operate_on_hosts(TEST_HOSTNAMES, mock_callback)
     assert mock_callback.call_count == 3
 
-  @mock.patch("apache.aurora.admin.host_maintenance.HostMaintenance._drain_hosts",
-    spec=HostMaintenance._drain_hosts)
-  @mock.patch("apache.aurora.admin.host_maintenance.HostMaintenance.start_maintenance",
-    spec=HostMaintenance.start_maintenance)
-  @mock.patch("apache.aurora.admin.host_maintenance.HostMaintenance._check_sla",
-    spec=HostMaintenance._check_sla)
-  @mock.patch("apache.aurora.admin.host_maintenance.HostMaintenance._operate_on_hosts",
-    spec=HostMaintenance._operate_on_hosts)
+  @mock.patch("apache.aurora.admin.host_maintenance.HostMaintenance._drain_hosts")
+  @mock.patch("apache.aurora.admin.host_maintenance.HostMaintenance.start_maintenance")
+  @mock.patch("apache.aurora.admin.host_maintenance.HostMaintenance._check_sla")
+  @mock.patch("apache.aurora.admin.host_maintenance.HostMaintenance._operate_on_hosts")
   def test_perform_maintenance(self, mock_operate_on_hosts, mock_check_sla, mock_start_maintenance,
                                mock_drain_hosts):
     mock_callback = mock.Mock()
@@ -208,12 +196,9 @@ class TestHostMaintenance(unittest.TestCase):
     assert mock_operate_on_hosts.call_args_list == [mock.call(set(), mock_callback)] + [
         mock.call(set([hostname]), mock_callback) for hostname in TEST_HOSTNAMES[1:]]
 
-  @mock.patch("apache.aurora.admin.host_maintenance.HostMaintenance._drain_hosts",
-              spec=HostMaintenance._drain_hosts)
-  @mock.patch("apache.aurora.admin.host_maintenance.HostMaintenance.start_maintenance",
-              spec=HostMaintenance.start_maintenance)
-  @mock.patch("apache.aurora.admin.host_maintenance.HostMaintenance._check_sla",
-              spec=HostMaintenance._check_sla)
+  @mock.patch("apache.aurora.admin.host_maintenance.HostMaintenance._drain_hosts")
+  @mock.patch("apache.aurora.admin.host_maintenance.HostMaintenance.start_maintenance")
+  @mock.patch("apache.aurora.admin.host_maintenance.HostMaintenance._check_sla")
   def test_perform_maintenance_partial_sla_failure(self, mock_check_sla, mock_start_maintenance,
                                mock_drain_hosts):
     failed_host = 'us-west-001.example.com'
@@ -241,8 +226,7 @@ class TestHostMaintenance(unittest.TestCase):
         assert mock_drain_hosts.call_count == 1
         assert mock_drain_hosts.call_args_list == [mock.call(Hosts(drained_hosts))]
 
-  @mock.patch("apache.aurora.client.api.AuroraClientAPI.maintenance_status",
-      spec=AuroraClientAPI.maintenance_status)
+  @mock.patch("apache.aurora.client.api.AuroraClientAPI.maintenance_status")
   def test_check_status(self, mock_maintenance_status):
     mock_maintenance_status.return_value = Response(responseCode=ResponseCode.OK, result=Result(
         maintenanceStatusResult=MaintenanceStatusResult(set([

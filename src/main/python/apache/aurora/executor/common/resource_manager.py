@@ -14,7 +14,7 @@
 
 import threading
 
-from mesos.interface import mesos_pb2
+from pesos.vendor.mesos import mesos_pb2
 from twitter.common.metrics import LambdaGauge
 
 from apache.aurora.executor.common.status_checker import (

@@ -12,10 +12,10 @@
 # limitations under the License.
 #
 
-from StringIO import StringIO
+from io import StringIO
 
 import pytest
-from mock import patch
+from unittest.mock import patch
 
 from apache.aurora.client.cli import __version__ as cli_version
 from apache.aurora.client.cli.client import AuroraCommandLine
@@ -25,8 +25,9 @@ from .util import AuroraClientCommandTest
 
 class TestClientVersionFlag(AuroraClientCommandTest):
   def test_version_flag(self):
-    with patch('sys.stderr', new_callable=StringIO) as mock_stderr:
+    with patch('sys.stderr', new_callable=StringIO) as mock_stderr, \
+        patch('sys.stdout', new_callable=StringIO) as mock_stdout:
       with pytest.raises(SystemExit):
         AuroraCommandLine().execute(['--version'])
 
-      assert mock_stderr.getvalue() == cli_version
+      assert mock_stdout.getvalue().strip() == cli_version

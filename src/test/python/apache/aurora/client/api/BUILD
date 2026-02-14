@@ -14,13 +14,13 @@
 
 python_tests(
   name = 'api',
-  sources = globs('*.py'),
+  sources = ['*.py', '!__init__.py'],
   dependencies = [
-    '3rdparty/python:mock',
-    '3rdparty/python:mox',
     'api/src/main/thrift/org/apache/aurora/gen',
+    'src/main/python:admin_src',
     'src/main/python/apache/aurora/client',
     'src/main/python/apache/aurora/common',
+    'src/main/python/twitter/common/zookeeper:zookeeper',
     'src/test/python/apache/aurora/client:lib_fake_scheduler_proxy',
   ],
 )

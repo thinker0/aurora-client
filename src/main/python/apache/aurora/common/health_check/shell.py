@@ -12,18 +12,9 @@
 # limitations under the License.
 #
 
-import os
-import sys
+import subprocess
 
-from subprocess32 import STDOUT
-
-# Recommended pattern for Python 2 and 3 support from https://github.com/google/python-subprocess32
-# Backport which adds bug fixes and timeout support for Python 2.7
-if os.name == 'posix' and sys.version_info[0] < 3:
-  import subprocess32 as subprocess
-else:
-  # subprocess is included as part of Python standard lib in Python 3+.
-  import subprocess
+STDOUT = subprocess.STDOUT
 
 
 class WrappedCalledProcessError(subprocess.CalledProcessError):

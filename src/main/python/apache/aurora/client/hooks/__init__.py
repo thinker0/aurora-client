@@ -55,7 +55,7 @@ Examples:
 
   class KillConfirmer(object):
     def confirm(self, msg):
-      return True if raw_input(msg).lower() == 'yes' else False
+      return True if input(msg).lower() == 'yes' else False
 
     def pre_kill(self, job_key, shards=None):
       shards = ('shards %s' % shards) if shards is not None else 'all shards'

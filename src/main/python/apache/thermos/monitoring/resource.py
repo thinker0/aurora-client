@@ -43,7 +43,25 @@ from twitter.common.quantity import Amount, Time
 
 from .disk import DiskCollectorSettings, DuDiskCollector, MesosDiskCollector
 from .process import ProcessSample
-from .process_collector_psutil import ProcessTreeCollector
+
+try:
+  from .process_collector_psutil import ProcessTreeCollector
+except ImportError:
+  class ProcessTreeCollector(object):
+    def __init__(self, pid):
+      self._pid = pid
+      self._sample = ProcessSample.empty()
+
+    def sample(self):
+      log.debug('psutil is unavailable; skipping process sampling for pid=%s', self._pid)
+
+    @property
+    def value(self):
+      return self._sample
+
+    @property
+    def procs(self):
+      return 0
 
 
 class ResourceMonitorBase(Interface):

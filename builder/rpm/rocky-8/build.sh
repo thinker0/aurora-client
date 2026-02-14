@@ -27,6 +27,15 @@ cd rpm
 export AURORA_VERSION=$(echo $AURORA_VERSION | tr '-' '_')
 export LC_ALL=en_US.UTF-8
 export LANG=en_US.UTF-8
+unset PIP_INDEX_URL
+export PEX_PIP_VERSION=20.2.4
+export PEX_PIP_EXTRA_ARGS="--use-deprecated=legacy-resolver --no-index"
+export PANTS_BOOTSTRAP_PIP_EXTRA_ARGS="--index-url https://pypi.org/simple"
+export PANTS_PYTHON=/usr/bin/python3.9
+export PYTHON=/usr/bin/python3.9
+export PANTS_WORKDIR="${PANTS_WORKDIR:-.pants.d}"
+export PANTS_BOOTSTRAPDIR="${PANTS_BOOTSTRAPDIR:-.pants.d/bootstrap}"
+export PANTS_LOCAL_STORE_DIR="${PANTS_LOCAL_STORE_DIR:-.pants.d/lmdb_store}"
 
 make srpm
 yum-builddep -y ../../../dist/rpmbuild/SRPMS/*

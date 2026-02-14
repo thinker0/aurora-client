@@ -13,7 +13,7 @@
 #
 import unittest
 
-import mock
+from unittest import mock
 
 from apache.aurora.client import base
 from apache.aurora.common.pex_version import UnknownVersion

@@ -15,8 +15,19 @@
 import contextlib
 
 import pytest
-from mock import Mock, call, create_autospec, patch
+from unittest.mock import Mock, call, create_autospec, patch
 from twitter.common.contextutil import temporary_file
+
+if not hasattr(contextlib, 'nested'):
+  from contextlib import ExitStack, contextmanager
+  def _nested(*contexts):
+    @contextmanager
+    def _manager():
+      with ExitStack() as stack:
+        entered = [stack.enter_context(ctx) for ctx in contexts]
+        yield tuple(entered)
+    return _manager()
+  contextlib.nested = _nested
 
 from apache.aurora.client.cli import (
     EXIT_COMMAND_FAILURE,
@@ -123,7 +134,7 @@ class TestClientCreateCommand(AuroraClientCommandTest):
     with contextlib.nested(
         # TODO(maxim): Patching threading.Event with all possible namespace/patch/mock
         #              combinations did not produce the desired effect. Investigate why (AURORA-510)
-        patch('threading._Event.wait'),
+        patch('threading.Event.wait'),
         patch('apache.aurora.client.cli.jobs.Job.create_context', return_value=mock_context)):
       # After making the client, create sets up a job monitor.
       # The monitor uses TaskQuery to get the tasks. It's called at least twice:once before
@@ -139,7 +150,7 @@ class TestClientCreateCommand(AuroraClientCommandTest):
 
       # This is the real test: invoke create as if it had been called by the command line.
       with temporary_file() as fp:
-        fp.write(self.get_valid_config())
+        fp.write(self.get_valid_config().encode())
         fp.flush()
         cmd = AuroraCommandLine()
         cmd.execute(['job', 'create', '--wait-until=RUNNING', 'west/bozo/test/hello',
@@ -155,7 +166,7 @@ class TestClientCreateCommand(AuroraClientCommandTest):
     with contextlib.nested(
         # TODO(maxim): Patching threading.Event with all possible namespace/patch/mock
         #              combinations did not produce the desired effect. Investigate why (AURORA-510)
-        patch('threading._Event.wait'),
+        patch('threading.Event.wait'),
         patch('apache.aurora.client.cli.jobs.Job.create_context', return_value=mock_context)):
       mock_query = self.create_query()
       mock_context.add_expected_status_query_result(
@@ -166,7 +177,7 @@ class TestClientCreateCommand(AuroraClientCommandTest):
       api.create_job.return_value = self.get_createjob_response()
       api.get_tier_configs.return_value = self.get_mock_tier_configurations()
       with temporary_file() as fp:
-        fp.write(self.get_valid_config())
+        fp.write(self.get_valid_config().encode())
         fp.flush()
         cmd = AuroraCommandLine()
         result = cmd.execute(['job', 'create', '--wait-until=RUNNING', '--open-browser',
@@ -186,7 +197,7 @@ class TestClientCreateCommand(AuroraClientCommandTest):
     """
     mock_context = FakeAuroraCommandContext()
     with contextlib.nested(
-        patch('threading._Event.wait'),
+        patch('threading.Event.wait'),
         patch('apache.aurora.client.cli.jobs.Job.create_context', return_value=mock_context)):
       mock_query = self.create_query()
       for result in [ScheduleStatus.PENDING, ScheduleStatus.PENDING, ScheduleStatus.RUNNING]:
@@ -195,7 +206,7 @@ class TestClientCreateCommand(AuroraClientCommandTest):
       api.create_job.return_value = self.get_createjob_response()
       api.get_tier_configs.return_value = self.get_mock_tier_configurations()
       with temporary_file() as fp:
-        fp.write(self.get_valid_config())
+        fp.write(self.get_valid_config().encode())
         fp.flush()
         cmd = AuroraCommandLine()
         cmd.execute(['job', 'create', '--wait-until=RUNNING', 'west/bozo/test/hello',
@@ -215,7 +226,7 @@ class TestClientCreateCommand(AuroraClientCommandTest):
       api.create_job.return_value = self.get_failed_createjob_response()
       api.get_tier_configs.return_value = self.get_mock_tier_configurations()
       with temporary_file() as fp:
-        fp.write(self.get_valid_config())
+        fp.write(self.get_valid_config().encode())
         fp.flush()
         cmd = AuroraCommandLine()
         result = cmd.execute(['job', 'create', '--wait-until=RUNNING',
@@ -231,7 +242,7 @@ class TestClientCreateCommand(AuroraClientCommandTest):
     mock_context = FakeAuroraCommandContext()
     with patch('apache.aurora.client.cli.jobs.Job.create_context', return_value=mock_context):
       with temporary_file() as fp:
-        fp.write(self.get_invalid_config('invalid_clause=oops'))
+        fp.write(self.get_invalid_config('invalid_clause=oops').encode())
         fp.flush()
         cmd = AuroraCommandLine()
         result = cmd.execute(['job', 'create', '--wait-until=RUNNING',
@@ -253,7 +264,7 @@ class TestClientCreateCommand(AuroraClientCommandTest):
       api.create_job.return_value = self.get_createjob_response()
 
       with temporary_file() as fp:
-        fp.write(self.get_valid_config())
+        fp.write(self.get_valid_config().encode())
         fp.flush()
         cmd = AuroraCommandLine()
         result = cmd.execute(['job', 'create', '--wait-until=RUNNING', 'west/bozo/test/hello',
@@ -270,7 +281,7 @@ class TestClientCreateCommand(AuroraClientCommandTest):
       api = mock_context.get_api('west')
       api.create_job.return_value = self.get_createjob_response()
       with temporary_file() as fp:
-        fp.write(self.get_valid_config())
+        fp.write(self.get_valid_config().encode())
         fp.flush()
         cmd = AuroraCommandLine()
         with pytest.raises(UnknownException):
@@ -282,7 +293,7 @@ class TestClientCreateCommand(AuroraClientCommandTest):
     """
     mock_context = FakeAuroraCommandContext()
     with contextlib.nested(
-        patch('threading._Event.wait'),
+        patch('threading.Event.wait'),
         patch('apache.aurora.client.cli.jobs.Job.create_context', return_value=mock_context)):
       mock_context.add_expected_status_query_result(
         self.create_mock_status_query_result(ScheduleStatus.PENDING))
@@ -295,7 +306,7 @@ class TestClientCreateCommand(AuroraClientCommandTest):
       api.get_tier_configs.return_value = self.get_mock_tier_configurations()
 
       with temporary_file() as fp:
-        fp.write(self.get_valid_config())
+        fp.write(self.get_valid_config().encode())
         fp.flush()
         cmd = AuroraCommandLine()
         result = cmd.execute(['job', 'create', '--wait-until=RUNNING', 'west/bozo/test/hello',
@@ -308,7 +319,7 @@ class TestClientCreateCommand(AuroraClientCommandTest):
   def test_create_job_startup_fails(self):
     mock_context = FakeAuroraCommandContext()
     with contextlib.nested(
-        patch('threading._Event.wait'),
+        patch('threading.Event.wait'),
         patch('apache.aurora.client.cli.jobs.Job.create_context', return_value=mock_context)):
       mock_context.add_expected_status_query_result(
         self.create_mock_status_query_result(ScheduleStatus.PENDING))
@@ -326,7 +337,7 @@ class TestClientCreateCommand(AuroraClientCommandTest):
       api.get_tier_configs.return_value = self.get_mock_tier_configurations()
 
       with temporary_file() as fp:
-        fp.write(self.get_valid_config())
+        fp.write(self.get_valid_config().encode())
         fp.flush()
         cmd = AuroraCommandLine()
         result = cmd.execute(['job', 'create', '--wait-until=RUNNING', 'west/bozo/test/hello',
@@ -345,7 +356,7 @@ class TestClientCreateCommand(AuroraClientCommandTest):
       api.create_job.return_value = self.get_failed_createjob_response()
       api.get_tier_configs.return_value = self.get_mock_tier_configurations()
       with temporary_file() as fp:
-        fp.write(self.get_valid_config())
+        fp.write(self.get_valid_config().encode())
         fp.flush()
         cmd = AuroraCommandLine()
         result = cmd.execute(['job', 'create', '--wait-until=RUNNING',
@@ -364,7 +375,7 @@ class TestClientCreateCommand(AuroraClientCommandTest):
 
     mock_context = FakeAuroraCommandContext()
     with contextlib.nested(
-        patch('threading._Event.wait'),
+        patch('threading.Event.wait'),
         patch('apache.aurora.client.cli.jobs.Job.create_context', return_value=mock_context)):
       mock_query = self.create_query()
       mock_context.add_expected_status_query_result(
@@ -377,7 +388,7 @@ class TestClientCreateCommand(AuroraClientCommandTest):
 
       # This is the real test: invoke create as if it had been called by the command line.
       with temporary_file() as fp:
-        fp.write(self.get_unbound_test_config())
+        fp.write(self.get_unbound_test_config().encode())
         fp.flush()
         cmd = AuroraCommandLine()
         cmd.execute(['job', 'create', '--wait-until=RUNNING', '--bind', 'cluster_binding=west',
@@ -398,12 +409,12 @@ class TestClientCreateCommand(AuroraClientCommandTest):
 
     mock_context = FakeAuroraCommandContext()
     with contextlib.nested(
-        patch('threading._Event.wait'),
+        patch('threading.Event.wait'),
         patch('apache.aurora.client.cli.jobs.Job.create_context', return_value=mock_context)):
 
       # This is the real test: invoke create as if it had been called by the command line.
       with temporary_file() as fp:
-        fp.write(self.get_unbound_test_config())
+        fp.write(self.get_unbound_test_config().encode())
         fp.flush()
         cmd = AuroraCommandLine()
         result = cmd.execute(['job', 'create', '--wait-until=RUNNING',
@@ -421,7 +432,7 @@ class TestClientCreateCommand(AuroraClientCommandTest):
     api.get_tier_configs.return_value = self.get_mock_tier_configurations()
     with patch('apache.aurora.client.cli.jobs.Job.create_context', return_value=mock_context):
       with temporary_file() as fp:
-        fp.write(self.get_valid_cron_config())
+        fp.write(self.get_valid_cron_config().encode())
         fp.flush()
         cmd = AuroraCommandLine()
         result = cmd.execute(['job', 'create', '--wait-until=RUNNING',

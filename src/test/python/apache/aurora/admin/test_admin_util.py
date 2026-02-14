@@ -15,7 +15,7 @@
 import subprocess
 import unittest
 
-import mock
+from unittest import mock
 from twitter.common.contextutil import temporary_file
 
 from apache.aurora.admin.admin_util import make_admin_client, parse_script

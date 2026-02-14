@@ -14,10 +14,10 @@
 
 python_tests(
   name = 'cli',
-  sources = globs('*.py'),
+  sources = ['*.py', '!__init__.py'],
   dependencies = [
-    '3rdparty/python:mock',
-    '3rdparty/python:twitter.common.contextutil',
+    'src/main/python/twitter/common:common_sources',
+    'src/main/python:admin_src',
     'src/main/python/apache/aurora/client',
     'src/test/python/apache/aurora',
   ]

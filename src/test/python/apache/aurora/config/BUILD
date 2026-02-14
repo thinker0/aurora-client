@@ -14,17 +14,13 @@
 
 python_tests(
   name = 'config',
-  sources = globs('*py'),
+  sources = ['*py'],
   dependencies = [
-    '3rdparty/python:mock',
-    '3rdparty/python:requests-mock',
-    '3rdparty/python:twitter.common.contextutil',
+    '3rdparty/python#requests-mock',
+    'src/main/python/twitter/common:common_sources',
     'api/src/main/thrift/org/apache/aurora/gen',
+    'src/main/python:admin_src',
     'src/main/python/apache/aurora/config',
     'src/main/python/apache/aurora/client',
   ],
-  coverage = [
-    'apache.aurora.config',
-    'apache.thermos.config'
-  ]
 )

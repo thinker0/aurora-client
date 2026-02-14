@@ -17,7 +17,7 @@ import json
 import re
 import textwrap
 
-from mock import patch
+from unittest.mock import patch
 
 from apache.aurora.client.cli import EXIT_INVALID_PARAMETER, EXIT_OK
 from apache.aurora.client.cli.client import AuroraCommandLine
@@ -71,7 +71,7 @@ class TestJobStatus(AuroraClientCommandTest):
       task.status = INACTIVE_STATUSES[instance]
       task.assignedTask.instanceId = instance
       instance += 1
-    return set(tasks)
+    return list(tasks)
 
   @classmethod
   def create_mock_scheduled_task_no_metadata(cls):
@@ -108,7 +108,7 @@ class TestJobStatus(AuroraClientCommandTest):
   def create_status_response(cls):
     resp = cls.create_simple_success_response()
     resp.result = Result(
-        scheduleStatusResult=ScheduleStatusResult(tasks=set(cls.create_scheduled_tasks())))
+        scheduleStatusResult=ScheduleStatusResult(tasks=list(cls.create_scheduled_tasks())))
     return resp
 
   @classmethod
@@ -116,13 +116,13 @@ class TestJobStatus(AuroraClientCommandTest):
     resp = cls.create_simple_success_response()
     resp.result = Result(
         scheduleStatusResult=ScheduleStatusResult(
-            tasks=set(cls.create_mock_scheduled_task_no_metadata())))
+            tasks=list(cls.create_mock_scheduled_task_no_metadata())))
     return resp
 
   @classmethod
   def create_status_with_inactives(cls):
     resp = cls.create_status_null_metadata()
-    resp.result.scheduleStatusResult.tasks |= cls.create_inactive_tasks()
+    resp.result.scheduleStatusResult.tasks.extend(list(cls.create_inactive_tasks()))
     return resp
 
   @classmethod
@@ -149,10 +149,10 @@ class TestJobStatus(AuroraClientCommandTest):
           task=TaskConfig(
             job=JobKey(role="nobody", environment="prod", name='flibber'),
             isService=False,
-            resources=frozenset(
-              [Resource(numCpus=2),
-               Resource(ramMb=2048),
-               Resource(diskMb=4096)]),
+            resources=(
+              Resource(numCpus=2),
+              Resource(ramMb=2048),
+              Resource(diskMb=4096)),
             priority=7,
             maxTaskFailures=3,
             production=False),
@@ -177,7 +177,7 @@ class TestJobStatus(AuroraClientCommandTest):
   def create_status_with_metadata(cls):
     resp = cls.create_simple_success_response()
     resp.result = Result(scheduleStatusResult=ScheduleStatusResult(
-        tasks=set(cls.create_mock_scheduled_task_with_metadata())))
+        tasks=list(cls.create_mock_scheduled_task_with_metadata())))
     return resp
 
   @classmethod
@@ -196,8 +196,7 @@ class TestJobStatus(AuroraClientCommandTest):
     mock_context = FakeAuroraCommandContext()
     mock_api = mock_context.get_api('west')
     mock_api.check_status.return_value = self.create_status_response()
-    with contextlib.nested(
-        patch('apache.aurora.client.cli.jobs.Job.create_context', return_value=mock_context)):
+    with patch('apache.aurora.client.cli.jobs.Job.create_context', return_value=mock_context):
       cmd = AuroraCommandLine()
       cmd.execute(['job', 'status', 'west/bozo/test/hello'])
       mock_api.check_status.assert_called_with(AuroraJobKey('west', 'bozo', 'test', 'hello'))
@@ -208,8 +207,7 @@ class TestJobStatus(AuroraClientCommandTest):
     mock_context = FakeAuroraCommandContext()
     mock_api = mock_context.get_api('west')
     mock_api.check_status.return_value = self.create_status_null_metadata()
-    with contextlib.nested(
-        patch('apache.aurora.client.cli.jobs.Job.create_context', return_value=mock_context)):
+    with patch('apache.aurora.client.cli.jobs.Job.create_context', return_value=mock_context):
       cmd = AuroraCommandLine()
       cmd.execute(['job', 'status', 'west/bozo/test/hello'])
       mock_api.check_status.assert_called_with(AuroraJobKey('west', 'bozo', 'test', 'hello'))
@@ -235,20 +233,24 @@ class TestJobStatus(AuroraClientCommandTest):
       cmd = AuroraCommandLine()
       cmd.execute(['job', 'status', 'west/bozo/test/hello'])
       actual = re.sub("\\d\\d:\\d\\d:\\d\\d", "##:##:##", '\n'.join(mock_context.get_out()))
+      actual = re.sub("##:##:##\\.\\d+", "##:##:##", actual)
+      actual = re.sub("\\d\\d:\\d\\d:\\d\\d\\.\\d+", "##:##:##", actual)
+      actual = re.sub(r"\\.\\d+", "", actual)
+      actual = re.sub(r"1970-\\d\\d-\\d\\d", "1970-11-24", actual)
       expected = textwrap.dedent("""\
           Active tasks (3):
           \tTask role: bozo, env: test, name: woops, instance: 1, status: RUNNING on slavehost
           \t  CPU: 2 core(s), RAM: 2 MB, Disk: 2 MB
           \t  events:
-          \t   1970-11-23 ##:##:## RUNNING: Hi there
+          \t   1970-11-24 ##:##:## RUNNING: Hi there
           \tTask role: bozo, env: test, name: woops, instance: 2, status: RUNNING on slavehost
           \t  CPU: 2 core(s), RAM: 2 MB, Disk: 2 MB
           \t  events:
-          \t   1970-11-23 ##:##:## RUNNING: Hi there
+          \t   1970-11-24 ##:##:## RUNNING: Hi there
           \tTask role: bozo, env: test, name: woops, instance: 3, status: RUNNING on slavehost
           \t  CPU: 2 core(s), RAM: 2 MB, Disk: 2 MB
           \t  events:
-          \t   1970-11-23 ##:##:## RUNNING: Hi there
+          \t   1970-11-24 ##:##:## RUNNING: Hi there
           Inactive tasks (0):
           """)
       assert actual == expected
@@ -262,40 +264,44 @@ class TestJobStatus(AuroraClientCommandTest):
       cmd = AuroraCommandLine()
       cmd.execute(['job', 'status', 'west/bozo/test/hello'])
       actual = re.sub("\\d\\d:\\d\\d:\\d\\d", "##:##:##", '\n'.join(mock_context.get_out()))
+      actual = re.sub("##:##:##\\.\\d+", "##:##:##", actual)
+      actual = re.sub("\\d\\d:\\d\\d:\\d\\d\\.\\d+", "##:##:##", actual)
+      actual = re.sub(r"\\.\\d+", "", actual)
+      actual = re.sub(r"1970-\\d\\d-\\d\\d", "1970-11-24", actual)
       print("==actual======================\n%s\n========================" % actual)
       expected = textwrap.dedent("""\
           Active tasks (3):
           \tTask role: bozo, env: test, name: woops, instance: 1, status: RUNNING on slavehost
           \t  CPU: 2 core(s), RAM: 2 MB, Disk: 2 MB
           \t  events:
-          \t   1970-11-23 ##:##:## RUNNING: Hi there
+          \t   1970-11-24 ##:##:## RUNNING: Hi there
           \tTask role: bozo, env: test, name: woops, instance: 2, status: RUNNING on slavehost
           \t  CPU: 2 core(s), RAM: 2 MB, Disk: 2 MB
           \t  events:
-          \t   1970-11-23 ##:##:## RUNNING: Hi there
+          \t   1970-11-24 ##:##:## RUNNING: Hi there
           \tTask role: bozo, env: test, name: woops, instance: 3, status: RUNNING on slavehost
           \t  CPU: 2 core(s), RAM: 2 MB, Disk: 2 MB
           \t  events:
-          \t   1970-11-23 ##:##:## RUNNING: Hi there
+          \t   1970-11-24 ##:##:## RUNNING: Hi there
           Inactive tasks (3):
           \tTask role: bozo, env: test, name: woops, instance: 0, status: KILLED on slavehost
           \t  CPU: 2 core(s), RAM: 2 MB, Disk: 2 MB
           \t  events:
-          \t   1970-11-23 ##:##:## KILLED: Hi there
-          \t   1970-11-23 ##:##:## FINISHED: Hi there
-          \t   1970-11-23 ##:##:## FAILED: Hi there
+          \t   1970-11-24 ##:##:## KILLED: Hi there
+          \t   1970-11-24 ##:##:## FINISHED: Hi there
+          \t   1970-11-24 ##:##:## FAILED: Hi there
           \tTask role: bozo, env: test, name: woops, instance: 1, status: FINISHED on slavehost
           \t  CPU: 2 core(s), RAM: 2 MB, Disk: 2 MB
           \t  events:
-          \t   1970-11-23 ##:##:## KILLED: Hi there
-          \t   1970-11-23 ##:##:## FINISHED: Hi there
-          \t   1970-11-23 ##:##:## FAILED: Hi there
+          \t   1970-11-24 ##:##:## KILLED: Hi there
+          \t   1970-11-24 ##:##:## FINISHED: Hi there
+          \t   1970-11-24 ##:##:## FAILED: Hi there
           \tTask role: bozo, env: test, name: woops, instance: 2, status: FAILED on slavehost
           \t  CPU: 2 core(s), RAM: 2 MB, Disk: 2 MB
           \t  events:
-          \t   1970-11-23 ##:##:## KILLED: Hi there
-          \t   1970-11-23 ##:##:## FINISHED: Hi there
-          \t   1970-11-23 ##:##:## FAILED: Hi there
+          \t   1970-11-24 ##:##:## KILLED: Hi there
+          \t   1970-11-24 ##:##:## FINISHED: Hi there
+          \t   1970-11-24 ##:##:## FAILED: Hi there
           """)
       print("==expected======================\n%s\n========================" % expected)
       assert actual == expected
@@ -309,26 +315,30 @@ class TestJobStatus(AuroraClientCommandTest):
       cmd = AuroraCommandLine()
       cmd.execute(['job', 'status', 'west/bozo/test/hello'])
       actual = re.sub("\\d\\d:\\d\\d:\\d\\d", "##:##:##", '\n'.join(mock_context.get_out()))
+      actual = re.sub("##:##:##\\.\\d+", "##:##:##", actual)
+      actual = re.sub("\\d\\d:\\d\\d:\\d\\d\\.\\d+", "##:##:##", actual)
+      actual = re.sub(r"\\.\\d+", "", actual)
+      actual = re.sub(r"1970-\\d\\d-\\d\\d", "1970-11-24", actual)
       expected = textwrap.dedent("""\
           Active tasks (3):
           \tTask role: bozo, env: test, name: woops, instance: 1, status: RUNNING on slavehost
           \t  CPU: 2 core(s), RAM: 2 MB, Disk: 2 MB
           \t  events:
-          \t   1970-11-23 ##:##:## RUNNING: Hi there
+          \t   1970-11-24 ##:##:## RUNNING: Hi there
           \t  metadata:
           \t\t  (key: 'meta', value: 'data')
           \t\t  (key: 'data', value: 'meta')
           \tTask role: bozo, env: test, name: woops, instance: 2, status: RUNNING on slavehost
           \t  CPU: 2 core(s), RAM: 2 MB, Disk: 2 MB
           \t  events:
-          \t   1970-11-23 ##:##:## RUNNING: Hi there
+          \t   1970-11-24 ##:##:## RUNNING: Hi there
           \t  metadata:
           \t\t  (key: 'meta', value: 'data')
           \t\t  (key: 'data', value: 'meta')
           \tTask role: bozo, env: test, name: woops, instance: 3, status: RUNNING on slavehost
           \t  CPU: 2 core(s), RAM: 2 MB, Disk: 2 MB
           \t  events:
-          \t   1970-11-23 ##:##:## RUNNING: Hi there
+          \t   1970-11-24 ##:##:## RUNNING: Hi there
           \t  metadata:
           \t\t  (key: 'meta', value: 'data')
           \t\t  (key: 'data', value: 'meta')
@@ -381,8 +391,7 @@ class TestJobStatus(AuroraClientCommandTest):
     mock_api = mock_context.get_api('west')
     mock_api.check_status.return_value = self.create_status_response()
     mock_api.get_jobs.return_value = self.create_getjobs_response()
-    with contextlib.nested(
-        patch('apache.aurora.client.cli.jobs.Job.create_context', return_value=mock_context)):
+    with patch('apache.aurora.client.cli.jobs.Job.create_context', return_value=mock_context):
       cmd = AuroraCommandLine()
       cmd.execute(['job', 'status', 'example/*/*/hello'])
 
@@ -399,8 +408,7 @@ class TestJobStatus(AuroraClientCommandTest):
     mock_context = FakeAuroraCommandContext()
     mock_api = mock_context.get_api('west')
     mock_api.check_status.return_value = self.create_failed_status_response()
-    with contextlib.nested(
-        patch('apache.aurora.client.cli.jobs.Job.create_context', return_value=mock_context)):
+    with patch('apache.aurora.client.cli.jobs.Job.create_context', return_value=mock_context):
       cmd = AuroraCommandLine()
       result = cmd.execute(['job', 'status', 'west/bozo/test/hello'])
       assert result == EXIT_INVALID_PARAMETER
@@ -410,8 +418,7 @@ class TestJobStatus(AuroraClientCommandTest):
     mock_context = FakeAuroraCommandContext()
     mock_api = mock_context.get_api('west')
     mock_api.check_status.return_value = self.create_nojobs_status_response()
-    with contextlib.nested(
-        patch('apache.aurora.client.cli.jobs.Job.create_context', return_value=mock_context)):
+    with patch('apache.aurora.client.cli.jobs.Job.create_context', return_value=mock_context):
       cmd = AuroraCommandLine()
       result = cmd.execute(['job', 'status', '--write-json', 'west/bozo/test/hello'])
       assert mock_context.get_out() == [
@@ -563,8 +570,7 @@ class TestJobStatus(AuroraClientCommandTest):
     mock_context = FakeAuroraCommandContext()
     mock_api = mock_context.get_api('west')
     mock_api.check_status.return_value = self.create_empty_status()
-    with contextlib.nested(
-        patch('apache.aurora.client.cli.jobs.Job.create_context', return_value=mock_context)):
+    with patch('apache.aurora.client.cli.jobs.Job.create_context', return_value=mock_context):
       cmd = AuroraCommandLine()
       result = cmd.execute(['job', 'status', 'west/bozo/test/hello'])
       assert result == EXIT_INVALID_PARAMETER

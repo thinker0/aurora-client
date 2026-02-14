@@ -12,7 +12,7 @@
 # limitations under the License.
 #
 
-from mock import patch
+from unittest.mock import patch
 from twitter.common.contextutil import temporary_file
 
 from apache.aurora.client.cli import ConfigurationPlugin
@@ -114,7 +114,7 @@ class TestPlugins(AuroraClientCommandTest):
 
       # This is the real test: invoke create as if it had been called by the command line.
       with temporary_file() as fp:
-        fp.write(self.get_valid_config())
+        fp.write(self.get_valid_config().encode())
         fp.flush()
         cmd = AuroraCommandLine()
         cmd.register_plugin(BogusPlugin())

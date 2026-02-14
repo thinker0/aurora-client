@@ -14,10 +14,11 @@
 import json
 import time
 
-import mock
+from unittest import mock
 import pytest
-from mock import ANY, Mock, call, create_autospec, patch
+from unittest.mock import ANY, Mock, call, create_autospec, patch
 from pystachio import Empty
+import contextlib
 
 from apache.aurora.client.cli import (
     EXIT_API_ERROR,
@@ -41,6 +42,7 @@ from apache.aurora.client.cli.update import (
     UpdateInfo,
     UpdateWait
 )
+import contextlib
 from apache.aurora.common.aurora_job_key import AuroraJobKey
 from apache.aurora.config import AuroraConfig
 from apache.aurora.config.schema.base import Job
@@ -68,6 +70,25 @@ from gen.apache.aurora.api.ttypes import (
     Result,
     StartJobUpdateResult
 )
+
+# Provide contextlib.nested compatibility for Python 3.
+if not hasattr(contextlib, 'nested'):
+  class _NestedContext:
+    def __init__(self, *managers):
+      self._managers = managers
+      self._stack = None
+
+    def __enter__(self):
+      self._stack = contextlib.ExitStack()
+      return tuple(self._stack.enter_context(mgr) for mgr in self._managers)
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+      return self._stack.__exit__(exc_type, exc_val, exc_tb)
+
+  def nested(*managers):
+    return _NestedContext(*managers)
+
+  contextlib.nested = nested
 
 UPDATE_KEY = JobUpdateKey(job=AuroraClientCommandTest.TEST_JOBKEY.to_thrift(), id="update_id")
 
@@ -157,7 +178,7 @@ class TestStartUpdate(AuroraClientCommandTest):
 
     err_msg = "Active updates exist for this job."
     return_value = AuroraClientCommandTest.create_start_job_update_result(
-      ResponseCode.INVALID_REQUEST, err_msg, UPDATE_KEY, {Metadata(CLIENT_UPDATE_ID, update_id)})
+      ResponseCode.INVALID_REQUEST, err_msg, UPDATE_KEY, [Metadata(CLIENT_UPDATE_ID, update_id)])
     self._mock_api.start_job_update.return_value = return_value
 
     with patch('apache.aurora.client.cli.update.DiffFormatter'):
@@ -184,7 +205,7 @@ class TestStartUpdate(AuroraClientCommandTest):
 
     err_msg = "Active updates exist for this job."
     return_value = AuroraClientCommandTest.create_start_job_update_result(
-      ResponseCode.INVALID_REQUEST, err_msg, UPDATE_KEY, {Metadata(CLIENT_UPDATE_ID, update_id)})
+      ResponseCode.INVALID_REQUEST, err_msg, UPDATE_KEY, [Metadata(CLIENT_UPDATE_ID, update_id)])
     self._mock_api.start_job_update.return_value = return_value
 
     with patch('apache.aurora.client.cli.update.DiffFormatter'):
@@ -553,8 +574,8 @@ class TestAbortUpdate(AuroraClientCommandTest):
     self._mock_api.abort_job_update.return_value = self.create_error_response()
     with pytest.raises(Context.CommandError) as error:
       self._command.execute(self._fake_context)
-      assert error.message == (
-        'scheduler returned multiple active updates for this job.')
+    assert error.value.msg == (
+      'The scheduler returned multiple active updates for this job.')
 
     assert self._mock_api.query_job_updates.mock_calls == [
         call(update_statuses=ACTIVE_JOB_UPDATE_STATES, job_key=self.TEST_JOBKEY)]
@@ -619,10 +640,10 @@ class TestUpdateInfo(AuroraClientCommandTest):
                     status=JobUpdateStatus.ROLLING_FORWARD,
                     createdTimestampMs=1000,
                     lastModifiedTimestampMs=2000),
-                metadata={
+                metadata=[
                     Metadata("issue", "test"),
                     Metadata("country", "America"),
-                    Metadata("country", "Canada")})),
+                    Metadata("country", "Canada")])),
         updateEvents=[
             JobUpdateEvent(
                 status=JobUpdateStatus.ROLLING_FORWARD,
@@ -857,8 +878,8 @@ class TestRollbackUpdate(AuroraClientCommandTest):
     self._mock_api.rollback_job_update.return_value = self.create_error_response()
     with pytest.raises(Context.CommandError) as error:
       self._command.execute(self._fake_context)
-      assert error.message == (
-        'scheduler returned multiple active updates for this job.')
+    assert error.value.msg == (
+      'The scheduler returned multiple active updates for this job.')
 
     assert self._mock_api.query_job_updates.mock_calls == [
         call(update_statuses=ACTIVE_JOB_UPDATE_STATES, job_key=self.TEST_JOBKEY)]

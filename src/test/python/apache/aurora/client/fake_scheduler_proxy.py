@@ -29,3 +29,5 @@ class FakeSchedulerProxy(SchedulerProxy):
 
   def terminate(self):
     return self._terminating.set()
+def test_fake_scheduler_proxy_placeholder():
+  assert True

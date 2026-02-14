@@ -15,7 +15,7 @@
 import contextlib
 from collections import defaultdict
 
-from mock import create_autospec, patch
+from unittest.mock import create_autospec, patch
 from twitter.common.contextutil import temporary_file
 
 from apache.aurora.admin.admin import sla_list_safe_domain, sla_probe_hosts
@@ -92,7 +92,7 @@ class TestAdminSlaListSafeDomainCommand(AuroraClientCommandTest):
     """Test successful execution of the sla_list_safe_domain command with exclude hosts option."""
     mock_vector = self.create_mock_vector(self.create_hosts(3, 80, 100))
     with temporary_file() as fp:
-      fp.write('h1')
+      fp.write('h1'.encode())
       fp.flush()
       mock_options = self.setup_mock_options(exclude=fp.name)
       with contextlib.nested(
@@ -142,7 +142,7 @@ class TestAdminSlaListSafeDomainCommand(AuroraClientCommandTest):
     mock_vector = self.create_mock_vector(self.create_hosts(1, 80, 100))
     hostname = 'h0'
     with temporary_file() as fp:
-      fp.write(hostname)
+      fp.write(hostname.encode())
       fp.flush()
       mock_options = self.setup_mock_options(include=fp.name)
       with contextlib.nested(
@@ -196,7 +196,7 @@ class TestAdminSlaListSafeDomainCommand(AuroraClientCommandTest):
     """Test successful execution of the sla_list_safe_domain command with override_jobs option."""
     mock_vector = self.create_mock_vector(self.create_hosts(3, 80, 100))
     with temporary_file() as fp:
-      fp.write('west/role/env/job1 30 200s')
+      fp.write('west/role/env/job1 30 200s'.encode())
       fp.flush()
       mock_options = self.setup_mock_options(override=fp.name)
       with contextlib.nested(
@@ -259,7 +259,7 @@ class TestAdminSlaListSafeDomainCommand(AuroraClientCommandTest):
   def test_safe_domain_malformed_job_override(self):
     """Tests execution of the sla_list_safe_domain command with invalid job_override file"""
     with temporary_file() as fp:
-      fp.write('30 200s')
+      fp.write('30 200s'.encode())
       fp.flush()
       mock_options = self.setup_mock_options(override=fp.name)
       with patch('twitter.common.app.get_options', return_value=mock_options):
@@ -359,7 +359,7 @@ class TestAdminSlaProbeHostsCommand(AuroraClientCommandTest):
     """Tests successful execution of the sla_probe_hosts command with host filename."""
     mock_vector = self.create_mock_probe_hosts_vector([self.create_probe_hosts(1, 80, False, None)])
     with temporary_file() as fp:
-      fp.write('h0')
+      fp.write('h0'.encode())
       fp.flush()
       mock_options = self.setup_mock_options(filename=fp.name)
       with contextlib.nested(
@@ -387,7 +387,7 @@ class TestAdminSlaProbeHostsCommand(AuroraClientCommandTest):
   def test_probe_hosts_error(self):
     """Tests execution of the sla_probe_hosts command with both host and filename provided."""
     with temporary_file() as fp:
-      fp.write('h0')
+      fp.write('h0'.encode())
       fp.flush()
       mock_options = self.setup_mock_options(hosts='h0', filename=fp.name)
       with patch('twitter.common.app.get_options', return_value=mock_options):

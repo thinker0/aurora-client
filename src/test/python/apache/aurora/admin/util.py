@@ -15,7 +15,7 @@
 import unittest
 from collections import defaultdict
 
-from mock import create_autospec
+from unittest.mock import create_autospec
 
 from apache.aurora.client.api.sla import DomainUpTimeSlaVector, JobUpTimeDetails
 from apache.aurora.client.hooks.hooked_api import HookedAuroraClientAPI

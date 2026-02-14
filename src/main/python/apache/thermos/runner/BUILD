@@ -11,35 +11,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import os
 
-
-python_library(
+python_sources(
   name = '_runner',
-  sources = rglobs('*.py'),
+  sources = ['*.py', '**/*.py'],
   dependencies = [
-    '3rdparty/python:twitter.common.app',
-    '3rdparty/python:twitter.common.log',
+    'src/main/python/twitter/common:common_sources',
     'src/main/python/apache/thermos/common',
     'src/main/python/apache/thermos/config',
     'src/main/python/apache/thermos/core',
   ],
 )
 
-python_library(
+python_sources(
   name = 'runner',
   dependencies = [
     ':_runner',
   ],
-  provides = setup_py(
-    name = 'apache.thermos.runner',
-    version = open(os.path.join(get_buildroot(), '.auroraversion')).read().strip().upper(),
-  ).with_binaries(
-    thermos_runner = ':thermos_runner',
-  ),
 )
 
-python_binary(
+pex_binary(
   name = 'thermos_runner',
   entry_point = 'apache.thermos.runner.thermos_runner',
   dependencies = [

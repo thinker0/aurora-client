@@ -1,0 +1,5 @@
+setuptools<58
+Cython<3
+toml<1
+tomli<3
+wheel<0.40

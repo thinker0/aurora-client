@@ -14,7 +14,7 @@
 
 from zipfile import BadZipfile
 
-import mock
+from unittest import mock
 import pytest
 from pex.pex import PexInfo
 

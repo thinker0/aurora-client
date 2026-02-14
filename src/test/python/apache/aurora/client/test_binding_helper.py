@@ -90,7 +90,7 @@ class CachedHelper(CachingBindingHelper):
 
 def write_and_load_config(role):
   with temporary_file() as fp:
-    fp.write(GENERIC_CONFIG)
+    fp.write(GENERIC_CONFIG.encode())
     fp.flush()
     return AuroraConfig.load(fp.name, name='hello_world', select_role=role)
 

@@ -119,7 +119,8 @@ class UpdateController(object):
 
 
 def format_timestamp(stamp_millis):
-  return datetime.datetime.utcfromtimestamp(stamp_millis / 1000).isoformat()
+  # Legacy behavior expected in tests: drop sub-second precision.
+  return datetime.datetime.utcfromtimestamp(int(stamp_millis / 1000)).isoformat()
 
 
 MESSAGE_OPTION = CommandOption(
@@ -427,7 +428,7 @@ class ListUpdates(Verb):
   def name(self):
     return 'list'
 
-  STATUS_GROUPS = dict({
+  STATUS_GROUPS = dict(list({
       'active': ACTIVE_JOB_UPDATE_STATES,
       'all': set(JobUpdateStatus._VALUES_TO_NAMES.keys()),
       'blocked': {
@@ -436,7 +437,7 @@ class ListUpdates(Verb):
       'inactive': set(JobUpdateStatus._VALUES_TO_NAMES.keys()) - ACTIVE_JOB_UPDATE_STATES,
       'paused': {JobUpdateStatus.ROLL_FORWARD_PAUSED, JobUpdateStatus.ROLL_BACK_PAUSED},
       'succeeded': {JobUpdateStatus.ROLLED_FORWARD},
-  }.items() + [(k, {v}) for k, v in JobUpdateStatus._NAMES_TO_VALUES.items()])
+  }.items()) + [(k, {v}) for k, v in JobUpdateStatus._NAMES_TO_VALUES.items()])
 
   def get_options(self):
     return [

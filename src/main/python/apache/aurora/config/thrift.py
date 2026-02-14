@@ -70,6 +70,39 @@ from gen.apache.aurora.api.ttypes import (
     Volume
 )
 
+# Ensure thrift types used in sets are hashable under Python 3.
+for _cls, _fields in (
+    (Resource, ('numCpus', 'ramMb', 'diskMb', 'namedPort', 'numGpus')),
+    (Metadata, ('key', 'value')),
+):
+  if _cls.__hash__ is None:
+    def _make_hash(fields):
+      return lambda self: hash(tuple(getattr(self, f, None) for f in fields))
+    _cls.__hash__ = _make_hash(_fields)
+
+# Task constraint related thrift types also need hash implementations for set() usage.
+def _hash_value_constraint(self):
+  values = tuple(sorted(self.values or []))
+  return hash((self.negated, values))
+
+def _hash_limit_constraint(self):
+  return hash(self.limit)
+
+def _hash_task_constraint(self):
+  return hash((self.value, self.limit))
+
+def _hash_constraint(self):
+  return hash((self.name, self.constraint))
+
+if ValueConstraint.__hash__ is None:
+  ValueConstraint.__hash__ = _hash_value_constraint
+if LimitConstraint.__hash__ is None:
+  LimitConstraint.__hash__ = _hash_limit_constraint
+if TaskConstraint.__hash__ is None:
+  TaskConstraint.__hash__ = _hash_task_constraint
+if Constraint.__hash__ is None:
+  Constraint.__hash__ = _hash_constraint
+
 __all__ = (
   'InvalidConfig',
   'convert'
@@ -81,8 +114,8 @@ class InvalidConfig(ValueError):
 
 
 def constraints_to_thrift(constraints):
-  """Convert a python dictionary to a set of Constraint thrift objects."""
-  result = set()
+  """Convert a python dictionary to a list of Constraint thrift objects."""
+  result = []
   for attribute, constraint_value in constraints.items():
     assert isinstance(attribute, Compatibility.string) and (
         isinstance(constraint_value, Compatibility.string)), (
@@ -104,7 +137,7 @@ def constraints_to_thrift(constraints):
         constraint_value = constraint_value[1:]
       task_constraint.value = ValueConstraint(negated, set(constraint_value.split(',')))
     constraint.constraint = task_constraint
-    result.add(constraint)
+    result.append(constraint)
   return result
 
 
@@ -366,7 +399,7 @@ def convert(job, metadata=frozenset(), ports=frozenset()):
          str(fully_interpolated(key_value_metadata.value())))
         for key_value_metadata in customized_metadata)
   metadata_set |= frozenset((str(key), str(value)) for key, value in metadata)
-  task.metadata = frozenset(Metadata(key=key, value=value) for key, value in metadata_set)
+  task.metadata = set(Metadata(key=key, value=value) for key, value in metadata_set)
 
   # task components
   if not task_raw.has_resources():
@@ -379,14 +412,14 @@ def convert(job, metadata=frozenset(), ports=frozenset()):
       fully_interpolated(task_raw.resources().disk())))
 
   numCpus = fully_interpolated(task_raw.resources().cpu())
-  ramMb = fully_interpolated(task_raw.resources().ram()) / MB
-  diskMb = fully_interpolated(task_raw.resources().disk()) / MB
+  ramMb = fully_interpolated(task_raw.resources().ram()) // MB
+  diskMb = fully_interpolated(task_raw.resources().disk()) // MB
   if numCpus <= 0 or ramMb <= 0 or diskMb <= 0:
     raise InvalidConfig('Task has invalid resources.  cpu/ramMb/diskMb must all be positive: '
         'cpu:%r ramMb:%r diskMb:%r' % (numCpus, ramMb, diskMb))
   numGpus = fully_interpolated(task_raw.resources().gpu())
 
-  task.resources = frozenset(
+  task.resources = (
       [Resource(numCpus=numCpus),
        Resource(ramMb=ramMb),
        Resource(diskMb=diskMb)]
@@ -396,7 +429,7 @@ def convert(job, metadata=frozenset(), ports=frozenset()):
   task.job = key
   task.owner = owner
   task.taskLinks = {}  # See AURORA-739
-  task.constraints = constraints_to_thrift(not_empty_or(job.constraints(), {}))
+  task.constraints = set(constraints_to_thrift(not_empty_or(job.constraints(), {})))
   task.container = create_container_config(job.container())
 
   underlying, refs = job.interpolate()

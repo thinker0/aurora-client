@@ -14,5 +14,5 @@
 
 resources(
   name = 'auroraversion',
-  sources = [ '.auroraversion' ]
+  sources = [ '.auroraversion' ],
 )

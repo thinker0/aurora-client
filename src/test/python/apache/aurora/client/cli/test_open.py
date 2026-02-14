@@ -12,7 +12,7 @@
 # limitations under the License.
 #
 
-from mock import call, patch
+from unittest.mock import call, patch
 
 from apache.aurora.client.cli import EXIT_OK
 from apache.aurora.client.cli.client import AuroraCommandLine

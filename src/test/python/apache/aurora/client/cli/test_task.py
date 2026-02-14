@@ -16,7 +16,7 @@ import contextlib
 import tempfile
 
 import pytest
-from mock import Mock, patch
+from unittest.mock import Mock, patch
 
 from apache.aurora.client.cli import EXIT_INVALID_PARAMETER, EXIT_OK, Context
 from apache.aurora.client.cli.client import AuroraCommandLine
@@ -32,6 +32,26 @@ from gen.apache.aurora.api.ttypes import (
     ScheduleStatusResult,
     TaskQuery
 )
+
+
+# Provide contextlib.nested compatibility for Python 3.
+if not hasattr(contextlib, 'nested'):
+  class _NestedContext:
+    def __init__(self, *managers):
+      self._managers = managers
+      self._stack = None
+
+    def __enter__(self):
+      self._stack = contextlib.ExitStack()
+      return tuple(self._stack.enter_context(mgr) for mgr in self._managers)
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+      return self._stack.__exit__(exc_type, exc_val, exc_tb)
+
+  def nested(*managers):
+    return _NestedContext(*managers)
+
+  contextlib.nested = nested
 
 
 class TestRunCommand(AuroraClientCommandTest):
@@ -174,7 +194,9 @@ class TestSshCommand(AuroraClientCommandTest):
             'slaverun/sandbox;ls'])
 
         pid = pid_file.read()
-        assert(pid == str(self.MOCKED_PID))
+        if isinstance(pid, bytes):
+          pid = pid.decode()
+        assert pid == str(self.MOCKED_PID)
 
   def test_successful_ssh(self):
     """Test the ssh command."""
@@ -367,7 +389,7 @@ class TestScpCommand(AuroraClientCommandTest):
     with contextlib.nested(patch('subprocess.call', return_value=EXIT_OK)) as [mock_subprocess]:
       with pytest.raises(Context.CommandError) as exc:
         assert self._command.execute(self._fake_context) == EXIT_INVALID_PARAMETER
-      assert(ScpCommand.TILDE_USAGE_ERROR_MSG % '~/test.txt' in exc.value.message)
+      assert ScpCommand.TILDE_USAGE_ERROR_MSG % '~/test.txt' in exc.value.msg
       assert mock_subprocess.call_count == 0
 
     # Test another tilde expansion form
@@ -377,7 +399,7 @@ class TestScpCommand(AuroraClientCommandTest):
     with contextlib.nested(patch('subprocess.call', return_value=EXIT_OK)) as [mock_subprocess]:
       with pytest.raises(Context.CommandError) as exc:
         assert self._command.execute(self._fake_context) == EXIT_INVALID_PARAMETER
-      assert(ScpCommand.TILDE_USAGE_ERROR_MSG % '~' in exc.value.message)
+      assert ScpCommand.TILDE_USAGE_ERROR_MSG % '~' in exc.value.msg
       assert mock_subprocess.call_count == 0
 
   def test_scp_bad_jobkey_no_instance(self):
@@ -389,7 +411,7 @@ class TestScpCommand(AuroraClientCommandTest):
     with contextlib.nested(patch('subprocess.call', return_value=EXIT_OK)) as [mock_subprocess]:
       with pytest.raises(Context.CommandError) as exc:
         assert self._command.execute(self._fake_context) == EXIT_INVALID_PARAMETER
-      assert('not in the form CLUSTER/ROLE/ENV/NAME/INSTANCE' in exc.value.message)
+      assert 'not in the form CLUSTER/ROLE/ENV/NAME/INSTANCE' in exc.value.msg
       assert mock_subprocess.call_count == 0
 
   def test_scp_bad_jobkey_invalid_format(self):
@@ -401,7 +423,7 @@ class TestScpCommand(AuroraClientCommandTest):
     with contextlib.nested(patch('subprocess.call', return_value=EXIT_OK)) as [mock_subprocess]:
       with pytest.raises(Context.CommandError) as exc:
         assert self._command.execute(self._fake_context) == EXIT_INVALID_PARAMETER
-      assert('not in the form CLUSTER/ROLE/ENV/NAME/INSTANCE' in exc.value.message)
+      assert 'not in the form CLUSTER/ROLE/ENV/NAME/INSTANCE' in exc.value.msg
       assert mock_subprocess.call_count == 0
 
   def test_scp_job_not_found(self):
@@ -413,6 +435,5 @@ class TestScpCommand(AuroraClientCommandTest):
     with contextlib.nested(patch('subprocess.call', return_value=EXIT_OK)) as [mock_subprocess]:
       with pytest.raises(Context.CommandError) as exc:
         assert self._command.execute(self._fake_context) == EXIT_INVALID_PARAMETER
-      assert(ScpCommand.JOB_NOT_FOUND_ERROR_MSG % ('west/bozo/test/hello', '0')
-          in exc.value.message)
+      assert ScpCommand.JOB_NOT_FOUND_ERROR_MSG % ('west/bozo/test/hello', '0') in exc.value.msg
       assert mock_subprocess.call_count == 0

@@ -75,8 +75,11 @@ class DiffFormatter(object):
     return ",\n".join(self._pretty_print_task(t) for t in tasks)
 
   def _dump_tasks(self, tasks, out_file):
-    out_file.write(self._pretty_print_tasks(tasks))
-    out_file.write("\n")
+    content = self._pretty_print_tasks(tasks)
+    if isinstance(content, str):
+      content = content.encode()
+    out_file.write(content)
+    out_file.write(b"\n")
     out_file.flush()
 
   def _diff_tasks(self, local_tasks, remote_tasks):

@@ -12,13 +12,12 @@
 # limitations under the License.
 #
 
-python_library(
+python_sources(
   name = 'testing',
-  sources = rglobs('*.py'),
+  sources = ['*.py', '**/*.py'],
   dependencies = [
-    '3rdparty/python:thrift',
-    '3rdparty/python:twitter.common.contextutil',
-    '3rdparty/python:twitter.common.log',
+    '3rdparty/python#thrift',
+    'src/main/python/twitter/common:common_sources',
     'src/main/python/apache/thermos/common',
     'src/main/python/apache/thermos/config',
     'src/main/python/apache/thermos/core',

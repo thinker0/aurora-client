@@ -12,7 +12,7 @@
 # limitations under the License.
 #
 import pytest
-from mock import call, patch
+from unittest.mock import call, patch
 
 from apache.aurora.client.cli import Context
 from apache.aurora.client.cli.jobs import AddCommand
@@ -78,7 +78,7 @@ class TestAddCommand(AuroraClientCommandTest):
         self._mock_options.wait_until,
         self.TEST_JOBKEY,
         self._mock_api,
-        [2, 3, 4])]
+        range(2, 5))]
     assert self._mock_api.query_no_configs.mock_calls == [
       call(TaskQuery(jobKeys=[self.TEST_JOBKEY.to_thrift()], statuses=ACTIVE_STATES)),
       call(TaskQuery(jobKeys=[self.TEST_JOBKEY.to_thrift()], statuses=ACTIVE_STATES))

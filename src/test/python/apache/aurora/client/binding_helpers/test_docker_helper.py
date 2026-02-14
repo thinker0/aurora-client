@@ -15,7 +15,7 @@
 import unittest
 
 import pytest
-from mock import call, patch
+from unittest.mock import call, patch
 from twitter.common.contextutil import temporary_file
 
 from apache.aurora.client import binding_helper

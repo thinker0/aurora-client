@@ -27,6 +27,7 @@ from .updater_util import UpdaterConfig
 from gen.apache.aurora.api.constants import LIVE_STATES
 from gen.apache.aurora.api.ttypes import (
     ExplicitReconciliationSettings,
+    HostStatus,
     InstanceKey,
     JobKey,
     JobUpdateKey,
@@ -39,6 +40,9 @@ from gen.apache.aurora.api.ttypes import (
     SlaPolicy,
     TaskQuery
 )
+
+if getattr(HostStatus, '__hash__', None) is None:
+  HostStatus.__hash__ = object.__hash__
 
 
 class AuroraClientAPI(object):
@@ -329,10 +333,10 @@ class AuroraClientAPI(object):
               % (role, cpu, ram, disk))
     return self._scheduler_proxy.setQuota(
         role,
-        ResourceAggregate(frozenset([
+        ResourceAggregate([
             Resource(numCpus=cpu),
             Resource(ramMb=ram),
-            Resource(diskMb=disk)])))
+            Resource(diskMb=disk)]))
 
   def get_tier_configs(self):
     log.debug("Getting tier configurations")

@@ -12,7 +12,7 @@
 # limitations under the License.
 #
 
-from mock import create_autospec, patch
+from unittest.mock import create_autospec, patch
 
 from apache.aurora.client.api.sla import JobUpTimeSlaVector
 from apache.aurora.client.cli.client import AuroraCommandLine

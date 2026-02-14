@@ -11,39 +11,29 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import os
-
-python_library(
+python_sources(
   name = '_admin',
-  sources = rglobs('*.py'),
+  sources = ['*.py', '**/*.py'],
   dependencies = [
-    '3rdparty/python:twitter.common.app',
-    '3rdparty/python:twitter.common.log',
-    '3rdparty/python:twitter.common.quantity',
+    'src/main/python/twitter/common:common_sources',
+    '3rdparty/python#thrift',
     'api/src/main/thrift/org/apache/aurora/gen',
     'src/main/python/apache/aurora/client',
     'src/main/python/apache/aurora/common',
     'src/main/python/apache/aurora/config',
-  ]
+  ],
+  resolve = 'python-default',
 )
 
-python_binary(
+pex_binary(
   name = 'aurora_admin',
   entry_point = 'apache.aurora.admin.aurora_admin:proxy_main',
   dependencies = [
-    ':_admin',
-  ]
-)
-
-python_library(
-  name = 'admin',
-  dependencies = [
+    'src/main/python:admin_src',
+    'api/src/main/thrift/org/apache/aurora/gen:gen',
     ':_admin',
   ],
-  provides = setup_py(
-    name = 'apache.aurora.admin',
-    version = open(os.path.join(get_buildroot(), '.auroraversion')).read().strip().upper(),
-  ).with_binaries({
-    'aurora_admin': ':aurora_admin',
-  }),
+  include_sources = True,
+  layout = 'zipapp',
+  resolve = 'python-admin',
 )

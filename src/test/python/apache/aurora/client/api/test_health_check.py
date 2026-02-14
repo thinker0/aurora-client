@@ -14,9 +14,7 @@
 
 import unittest
 
-import mox
-
-from apache.aurora.client.api.health_check import HealthCheck, StatusHealthCheck
+from apache.aurora.client.api.health_check import StatusHealthCheck
 
 from gen.apache.aurora.api.ttypes import AssignedTask, ScheduledTask, ScheduleStatus, TaskConfig
 
@@ -29,22 +27,12 @@ class HealthCheckTest(unittest.TestCase):
 
   def setUp(self):
     self._status_health_check = StatusHealthCheck()
-    self._health_check_a = mox.MockObject(HealthCheck)
-    self._health_check_b = mox.MockObject(HealthCheck)
-
+  
   def create_task(self, instance_id, task_id, status=RUNNING):
     assigned_task = AssignedTask(taskId=task_id,
                                  instanceId=instance_id,
                                  task=TaskConfig())
     return ScheduledTask(assignedTask=assigned_task, status=status)
-
-  def replay(self):
-    mox.Replay(self._health_check_a)
-    mox.Replay(self._health_check_b)
-
-  def verify(self):
-    mox.Verify(self._health_check_a)
-    mox.Verify(self._health_check_b)
 
   def test_simple_status_health_check(self):
     """Verify that running instances are reported healthy"""

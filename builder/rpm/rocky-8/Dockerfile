@@ -22,19 +22,25 @@ RUN yum update -y && \
     rpm-build \
     yum-utils \
     apr-devel \
+    autoconf \
+    automake \
+    bison \
+    boost-devel \
     cyrus-sasl-devel \
     flex vim \
     gcc \
     gcc-c++ \
-    java-1.8.0-openjdk-devel \
+    java-11-openjdk-headless \
+    libevent-devel \
+    libtool \
     krb5-devel \
     libcurl-devel \
     libffi-devel \
     openssl \
     openssl-devel \
     patch \
-    python2 \
-    python2-devel \
+    python39 \
+    python39-devel \
     subversion-devel \
     tar \
     unzip \
@@ -43,9 +49,6 @@ RUN yum update -y && \
     zlib-devel
 
 ENV LC_ALL=C
-
-# Crude workaround for https://github.com/gradle/gradle/issues/1782
-RUN mkdir -p /usr/lib/jvm/java-8-openjdk-amd64/jre/lib/security
-RUN ln -s /etc/pki/java/cacerts /usr/lib/jvm/java-8-openjdk-amd64/jre/lib/security/cacerts
+ENV JAVA_HOME=/usr/lib/jvm/java-11-openjdk
 
 ADD build.sh /build.sh

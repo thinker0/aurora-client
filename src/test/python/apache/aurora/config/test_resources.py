@@ -48,10 +48,10 @@ class TestResourceManager(unittest.TestCase):
     assert quantity == 1.0
 
   def test_quota(self):
-    quota = ResourceAggregate(resources={
+    quota = ResourceAggregate(resources=[
         Resource(numCpus=1.0),
         Resource(ramMb=2),
-        Resource(diskMb=3)})
+        Resource(diskMb=3)])
     assert ResourceManager.resource_details_from_quota(quota) == [
         ResourceDetails(ResourceType.CPUS, 1.0),
         ResourceDetails(ResourceType.RAM_MB, 2),

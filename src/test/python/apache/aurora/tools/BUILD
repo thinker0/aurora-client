@@ -12,11 +12,10 @@
 # limitations under the License.
 #
 
-python_tests(
+target(
   name = 'tools',
-  sources = globs('*.py'),
   dependencies = [
-    '3rdparty/python:mock',
+    'src/main/python:admin_src',
     'src/main/python/apache/aurora/tools:thermos_observer',
-  ]
+  ],
 )

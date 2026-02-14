@@ -31,9 +31,9 @@ run_build() {
   local package_name="apache-aurora-${AURORA_VERSION}"
   IMAGE_NAME="aurora-$(basename $BUILDER_DIR)"
   echo "Using docker image $IMAGE_NAME"
-  echo docker build --pull -t "$IMAGE_NAME" "builder/rpm/$BUILDER_DIR"
-  docker build --pull -t "$IMAGE_NAME" "builder/rpm/$BUILDER_DIR"
-  rm -f ${BUILD_PACKAGE}
+  echo docker build --pull --platform=linux/amd64 -t "$IMAGE_NAME" "builder/rpm/$BUILDER_DIR"
+  docker build --pull --platform=linux/amd64 -t "$IMAGE_NAME" "builder/rpm/$BUILDER_DIR"
+  rm -f ${BUILD_PACKAGE} target/${BUILD_PACKAGE}
   artifact_dir="artifacts/$IMAGE_NAME"
   rm -rf "$artifact_dir"
   mkdir -p "$artifact_dir" target
@@ -46,25 +46,90 @@ run_build() {
     rm -rf target/$package_name
     pushd target/ && tar xvfz apache-aurora-$AURORA_VERSION.tar.gz && popd
   }
-  rsync -a 3rdparty api src pants pants.ini build-support builder specs \
+  rsync -a 3rdparty api src pants pants.toml build-support builder specs \
       --exclude '*.venv' \
-      target/${package_name}/
+      "target/${package_name}/"
+  PACKAGE_NAME="${package_name}" python3 - <<'PY'
+from pathlib import Path
+import os
+import shutil
+
+path = Path("target") / os.environ["PACKAGE_NAME"] / "build.gradle"
+if path.exists():
+    text = path.read_text()
+    text = text.replace(
+        "def python27Executable = ['python2.7', 'python'].find { python ->",
+        "def python27Executable = ['python3', 'python2.7', 'python'].find { python ->",
+    )
+    text = text.replace(
+        "sys.version_info >= (2,7) and sys.version_info < (3,)",
+        "sys.version_info >= (3,0)",
+    )
+    text = text.replace("Build requires Python 2.7.", "Build requires Python 3.")
+
+    # Update NodeJS version for UI build (cheerio@1.2.0 requires >=20.18.1).
+    text = text.replace("version = '20.11.0'", "version = '20.18.1'")
+    path.write_text(text)
+
+codegen_path = Path("target") / os.environ["PACKAGE_NAME"] / "src/main/python/apache/aurora/tools/java/thrift_wrapper_codegen.py"
+if codegen_path.exists():
+    codegen = codegen_path.read_text()
+    old_parse_fields = "return map(parse_field, re.finditer(FIELD_RE, field_str))"
+    new_parse_fields = "return list(map(parse_field, re.finditer(FIELD_RE, field_str)))"
+    if old_parse_fields in codegen:
+        codegen = codegen.replace(old_parse_fields, new_parse_fields)
+        codegen_path.write_text(codegen)
+
+# Patch pants.toml for container paths and keep no-index behavior.
+pants_toml = Path("target") / os.environ["PACKAGE_NAME"] / "pants.toml"
+if pants_toml.exists():
+    text = pants_toml.read_text()
+    # Keep indexes empty to avoid remote resolution.
+    text = text.replace('indexes = ["https://pypi.org/simple"]', 'indexes = []')
+    # Point wheelhouse to the container build path.
+    text = text.replace(
+        "file:///Users/thinker0/opensource/aurora-client/3rdparty/python/wheels",
+        f"file:///dist/rpmbuild/BUILD/{os.environ['PACKAGE_NAME']}/3rdparty/python/wheels",
+    )
+    pants_toml.write_text(text)
+
+# Replace absolute symlinked wheels dir with a real copy so rpmbuild/pants can read it.
+wheels_path = Path("target") / os.environ["PACKAGE_NAME"] / "3rdparty/python/wheels"
+if wheels_path.is_symlink():
+    resolved = wheels_path.resolve()
+    wheels_path.unlink()
+    if resolved.is_dir():
+        shutil.copytree(resolved, wheels_path, symlinks=False)
+    else:
+        raise RuntimeError(f"Expected wheels directory at {resolved}")
+
+# Replace absolute symlinked thrift binary with a real copy so pants can read it.
+thrift_path = Path("target") / os.environ["PACKAGE_NAME"] / "build-support/thrift/thrift"
+if thrift_path.is_symlink():
+    resolved = thrift_path.resolve()
+    thrift_path.unlink()
+    if resolved.is_file():
+        shutil.copy2(resolved, thrift_path)
+    else:
+        raise RuntimeError(f"Expected thrift binary at {resolved}")
+PY
   pushd target && {
     rsync -a ${package_name}/.auroraversion \
         ${package_name}/src/main/python/apache/aurora/client/cli/
     tar cfz "$RELEASE_TAR" ${package_name}/
-    tar cfz ${BUILD_PACKAGE} "$RELEASE_TAR" \
+    tar cfz ../${BUILD_PACKAGE} "$RELEASE_TAR" \
         ${package_name}
     popd
   }
-  docker run -it \
+  docker run \
     -e AURORA_VERSION=$AURORA_VERSION \
     -e GRADLE_VERSION=6.9.4 \
     -e GIT_DISCOVERY_ACROSS_FILESYSTEM=1 \
     --net=host \
+    --platform=linux/amd64 \
     -v "$(pwd)/$artifact_dir:/dist:rw" \
     -v "$(pwd)/specs:/specs:ro" \
-    -v "$(realpath target/${BUILD_PACKAGE}):/src.tar.gz:ro" \
+    -v "$(realpath ${BUILD_PACKAGE}):/src.tar.gz:ro" \
     -t "$IMAGE_NAME" /build.sh
   container=$(docker ps -l -q)
   docker cp $container:/dist "$artifact_dir"
@@ -95,14 +160,79 @@ run_build_platform() {
     rm -rf target/$package_name
     pushd target/ && tar xvfz apache-aurora-$AURORA_VERSION.tar.gz && popd
   }
-  rsync -a 3rdparty api src pants pants.ini build-support builder specs \
+  rsync -a 3rdparty api src pants pants.toml build-support builder specs \
       --exclude '*.venv' \
-      target/${package_name}/
+      "target/${package_name}/"
+  PACKAGE_NAME="${package_name}" python3 - <<'PY'
+from pathlib import Path
+import os
+import shutil
+
+path = Path("target") / os.environ["PACKAGE_NAME"] / "build.gradle"
+if path.exists():
+    text = path.read_text()
+    text = text.replace(
+        "def python27Executable = ['python2.7', 'python'].find { python ->",
+        "def python27Executable = ['python3', 'python2.7', 'python'].find { python ->",
+    )
+    text = text.replace(
+        "sys.version_info >= (2,7) and sys.version_info < (3,)",
+        "sys.version_info >= (3,0)",
+    )
+    text = text.replace("Build requires Python 2.7.", "Build requires Python 3.")
+
+    # Update NodeJS version for UI build (cheerio@1.2.0 requires >=20.18.1).
+    text = text.replace("version = '20.11.0'", "version = '20.18.1'")
+    path.write_text(text)
+
+codegen_path = Path("target") / os.environ["PACKAGE_NAME"] / "src/main/python/apache/aurora/tools/java/thrift_wrapper_codegen.py"
+if codegen_path.exists():
+    codegen = codegen_path.read_text()
+    old_parse_fields = "return map(parse_field, re.finditer(FIELD_RE, field_str))"
+    new_parse_fields = "return list(map(parse_field, re.finditer(FIELD_RE, field_str)))"
+    if old_parse_fields in codegen:
+        codegen = codegen.replace(old_parse_fields, new_parse_fields)
+        codegen_path.write_text(codegen)
+
+# Patch pants.toml for container paths and keep no-index behavior.
+pants_toml = Path("target") / os.environ["PACKAGE_NAME"] / "pants.toml"
+if pants_toml.exists():
+    text = pants_toml.read_text()
+    # Keep indexes empty to avoid remote resolution.
+    text = text.replace('indexes = ["https://pypi.org/simple"]', 'indexes = []')
+    # Point wheelhouse to the local build path.
+    wheels_file = (Path("target") / os.environ["PACKAGE_NAME"] / "3rdparty/python/wheels").resolve().as_posix()
+    text = text.replace(
+        "file:///Users/thinker0/opensource/aurora-client/3rdparty/python/wheels",
+        f"file://{wheels_file}",
+    )
+    pants_toml.write_text(text)
+
+# Replace absolute symlinked wheels dir with a real copy so rpmbuild/pants can read it.
+wheels_path = Path("target") / os.environ["PACKAGE_NAME"] / "3rdparty/python/wheels"
+if wheels_path.is_symlink():
+    resolved = wheels_path.resolve()
+    wheels_path.unlink()
+    if resolved.is_dir():
+        shutil.copytree(resolved, wheels_path, symlinks=False)
+    else:
+        raise RuntimeError(f"Expected wheels directory at {resolved}")
+
+# Replace absolute symlinked thrift binary with a real copy so pants can read it.
+thrift_path = Path("target") / os.environ["PACKAGE_NAME"] / "build-support/thrift/thrift"
+if thrift_path.is_symlink():
+    resolved = thrift_path.resolve()
+    thrift_path.unlink()
+    if resolved.is_file():
+        shutil.copy2(resolved, thrift_path)
+    else:
+        raise RuntimeError(f"Expected thrift binary at {resolved}")
+PY
   pushd target && {
     rsync -a ${package_name}/.auroraversion \
         ${package_name}/src/main/python/apache/aurora/client/cli/
     tar cfz "$RELEASE_TAR" ${package_name}/
-    tar cfz ${BUILD_PACKAGE} "$RELEASE_TAR" \
+    tar cfz ../${BUILD_PACKAGE} "$RELEASE_TAR" \
         ${package_name}
     popd
   }
@@ -126,7 +256,6 @@ case $# in
       run_build "$@"
     else
       run_build_platform "$@"
-      exit 1
     fi
     ;;
 

@@ -14,16 +14,25 @@
 
 python_tests(
   name = 'admin',
-  sources = globs('*.py'),
+  sources = ['test_*.py'],
   dependencies = [
-    '3rdparty/python:mock',
-    '3rdparty/python:twitter.common.contextutil',
-    '3rdparty/python:twitter.common.log',
-    '3rdparty/python:twitter.common.quantity',
+    'src/main/python/twitter/common:common_sources',
     'api/src/main/thrift/org/apache/aurora/gen',
-    'src/main/python/apache/aurora/admin',
+    'src/main/python:admin_src',
+    'src/main/python/apache/aurora/admin:_admin',
     'src/main/python/apache/aurora/client',
     'src/main/python/apache/aurora/common',
+    'src/test/python/apache/aurora',
+    ':util_src',
+  ],
+)
+
+python_sources(
+  name='util_src',
+  sources=['util.py'],
+  dependencies=[
+    'api/src/main/thrift/org/apache/aurora/gen',
+    'src/main/python:admin_src',
     'src/test/python/apache/aurora',
   ],
 )

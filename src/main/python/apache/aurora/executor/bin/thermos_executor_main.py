@@ -44,10 +44,13 @@ from apache.aurora.executor.thermos_task_runner import (
 from apache.thermos.common.excepthook import ExceptionTerminationHandler
 
 try:
-  from mesos.executor import MesosExecutorDriver
+  from pesos.executor import PesosExecutorDriver as MesosExecutorDriver
 except ImportError:
-  print(traceback.format_exc(), file=sys.stderr)
-  MesosExecutorDriver = None
+  try:
+    from pesos import MesosExecutorDriver
+  except ImportError:
+    print(traceback.format_exc(), file=sys.stderr)
+    MesosExecutorDriver = None
 
 
 CWD = os.environ.get('MESOS_SANDBOX', '.')

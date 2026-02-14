@@ -31,9 +31,9 @@ def _read_chunk(filename, offset=None, length=None):
   length = length or -1
 
   try:
-    length = long(length)
-    offset = long(offset)
-  except ValueError:
+    length = int(length)
+    offset = int(offset)
+  except (TypeError, ValueError):
     return {}
 
   if not os.path.isfile(filename):
@@ -51,7 +51,7 @@ def _read_chunk(filename, offset=None, length=None):
   if length == -1:
     length = fstat.st_size - offset
 
-  with open(filename, "r") as fp:
+  with open(filename, "rb") as fp:
     fp.seek(offset)
     try:
       data = fp.read(length)

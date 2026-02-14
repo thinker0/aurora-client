@@ -12,7 +12,11 @@
 # limitations under the License.
 #
 
+import sys
+import types
+
 from twitter.common.http import HttpServer
+from twitter.common.http import server as http_server
 from twitter.common.http.diagnostics import DiagnosticsEndpoints
 from twitter.common.metrics import RootMetrics
 
@@ -22,6 +26,21 @@ from .vars_endpoint import VarsEndpoint
 
 
 def configure_server(task_observer, options=None):
+  if sys.version_info[0] >= 3:
+    def _bind_method_py3(self, class_instance, method_name):
+      if not hasattr(class_instance, method_name):
+        raise ValueError('No method %s.%s exists for bind_method!' % (
+          self.source_name(class_instance), method_name))
+      method = getattr(class_instance, method_name)
+      if isinstance(method, types.MethodType):
+        method_self = getattr(method, '__self__', None)
+        if method_self is None:
+          raise TypeError('Cannot mount methods from an unbound class.')
+        self._mounts.add(method_self)
+        setattr(self, method_name, method)
+
+    http_server.HttpServer._bind_method = _bind_method_py3
+
   bottle_wrapper = BottleObserver(task_observer, options=options)
   root_metrics = RootMetrics()
   server = HttpServer()

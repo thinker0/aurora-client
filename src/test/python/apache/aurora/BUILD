@@ -12,9 +12,9 @@
 # limitations under the License.
 #
 
-python_library(
+python_sources(
   name = 'aurora',
-  sources = [ 'api_util.py' ],
+  sources = [ '__init__.py', 'api_util.py', 'conftest.py' ],
   dependencies = [
     'api/src/main/thrift/org/apache/aurora/gen',
     'src/main/python/apache/aurora/client',

@@ -14,12 +14,12 @@
 
 python_tests(
   name = 'common',
-  sources = globs('*.py'),
+  sources = ['*.py'],
   dependencies = [
-    '3rdparty/python:mock',
-    '3rdparty/python:twitter.common.contextutil',
-    '3rdparty/python:twitter.common.options',
+    '3rdparty/python#pystachio',
+    'src/main/python/twitter/common:common_sources',
     'api/src/main/thrift/org/apache/aurora/gen',
+    'src/main/python:admin_src',
     'src/main/python/apache/aurora/common',
   ]
 )

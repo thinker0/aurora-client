@@ -14,8 +14,7 @@
 
 import unittest
 from math import ceil
-
-import mox
+from unittest import mock
 
 from apache.aurora.client.api.health_check import HealthCheck
 from apache.aurora.client.api.instance_watcher import InstanceWatcher
@@ -75,9 +74,12 @@ class InstanceWatcherTest(unittest.TestCase):
   def setUp(self):
     self._clock = FakeClock()
     self._event = FakeEvent(self._clock)
-    self._scheduler = mox.MockObject(SchedulerProxyApiSpec)
+    self._scheduler = mock.Mock(spec=SchedulerProxyApiSpec)
     self._job_key = JobKey(role='mesos', name='jimbob', environment='test')
-    self._health_check = mox.MockObject(HealthCheck)
+    self._health_check = mock.Mock(spec=HealthCheck)
+    self._scheduler_side_effects = []
+    self._health_status_by_instance = {}
+    self._health_check.health.side_effect = self._health_side_effect
     self._watcher = InstanceWatcher(self._scheduler,
                                  self._job_key,
                                  self.WATCH_SECS,
@@ -103,24 +105,28 @@ class InstanceWatcherTest(unittest.TestCase):
         details=[ResponseDetail(message='test')],
         result=Result(scheduleStatusResult=ScheduleStatusResult(tasks=tasks)))
 
-    query = self.get_tasks_status_query(instance_ids)
     for _ in range(int(num_calls)):
-      self._scheduler.getTasksWithoutConfigs(query, retry=True).AndReturn(response)
+      self._scheduler_side_effects.append(response)
+    self._scheduler.getTasksWithoutConfigs.side_effect = list(self._scheduler_side_effects)
 
   def expect_io_error_in_get_statuses(self, instance_ids=WATCH_INSTANCES,
       num_calls=EXPECTED_CYCLES):
 
-    query = self.get_tasks_status_query(instance_ids)
     for _ in range(int(num_calls)):
-      self._scheduler.getTasksWithoutConfigs(query, retry=True).AndRaise(IOError('oops'))
+      self._scheduler_side_effects.append(IOError('oops'))
+    self._scheduler.getTasksWithoutConfigs.side_effect = list(self._scheduler_side_effects)
 
-  def mock_health_check(self, task, status):
-    self._health_check.health(task).InAnyOrder().AndReturn(status)
+  def _health_side_effect(self, task):
+    instance_id = task.assignedTask.instanceId
+    statuses = self._health_status_by_instance.get(instance_id, [])
+    if not statuses:
+      raise AssertionError('Unexpected health check for instance %s' % instance_id)
+    return statuses.pop(0)
 
   def expect_health_check(self, instance, status, num_calls=EXPECTED_CYCLES):
     num_calls = num_calls if status else 1
     for _ in range(int(num_calls)):
-      self.mock_health_check(self.create_task(instance), status)
+      self._health_status_by_instance.setdefault(instance, []).append(status)
 
   def assert_watch_result(self, expected_failed_instances, instances_to_watch=WATCH_INSTANCES):
     instances_returned = self._watcher.watch(instances_to_watch, self._health_check)
@@ -128,13 +134,10 @@ class InstanceWatcherTest(unittest.TestCase):
         'Expected instances (%s) : Returned instances (%s)' % (
             expected_failed_instances, instances_returned))
 
-  def replay_mocks(self):
-    mox.Replay(self._scheduler)
-    mox.Replay(self._health_check)
-
   def verify_mocks(self):
-    mox.Verify(self._scheduler)
-    mox.Verify(self._health_check)
+    assert self._scheduler.getTasksWithoutConfigs.call_count == len(self._scheduler_side_effects)
+    for instance_id, statuses in self._health_status_by_instance.items():
+      assert statuses == [], 'Unused health checks for instance %s' % instance_id
 
   def test_successful_watch(self):
     """All instances are healthy immediately"""
@@ -142,7 +145,6 @@ class InstanceWatcherTest(unittest.TestCase):
     self.expect_health_check(0, True)
     self.expect_health_check(1, True)
     self.expect_health_check(2, True)
-    self.replay_mocks()
     self.assert_watch_result([])
     self.verify_mocks()
 
@@ -152,7 +154,6 @@ class InstanceWatcherTest(unittest.TestCase):
     self.expect_health_check(0, False)
     self.expect_health_check(1, True)
     self.expect_health_check(2, True)
-    self.replay_mocks()
     self.assert_watch_result([0])
     self.verify_mocks()
 
@@ -162,7 +163,6 @@ class InstanceWatcherTest(unittest.TestCase):
     self.expect_health_check(0, False)
     self.expect_health_check(1, False)
     self.expect_health_check(2, False)
-    self.replay_mocks()
     self.assert_watch_result([0, 1, 2])
     self.verify_mocks()
 
@@ -175,7 +175,6 @@ class InstanceWatcherTest(unittest.TestCase):
     self.expect_health_check(0, False)
     self.expect_health_check(1, False)
     self.expect_health_check(2, False)
-    self.replay_mocks()
     self.assert_watch_result([0, 1, 2])
     self.verify_mocks()
 
@@ -186,13 +185,11 @@ class InstanceWatcherTest(unittest.TestCase):
     self.expect_health_check(1, True)
     self.expect_health_check(2, True, num_calls=self.EXPECTED_CYCLES - 1)
     self.expect_health_check(2, False)
-    self.replay_mocks()
     self.assert_watch_result([2])
     self.verify_mocks()
 
   def test_terminated_exits_immediately(self):
     """Terminated instance watched should bail out immediately."""
-    self.replay_mocks()
     self._watcher.terminate()
     result = self._watcher.watch([], self._health_check)
     assert result is None, ('Expected instances None : Returned instances (%s)' % result)

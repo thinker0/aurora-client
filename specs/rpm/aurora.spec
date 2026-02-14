@@ -50,7 +50,7 @@
 %endif
 
 %if %{?!PYTHON_VERSION:1}0
-%global PYTHON_VERSION 2.7
+%global PYTHON_VERSION 3
 %endif
 
 
@@ -87,13 +87,9 @@ BuildRequires: libcurl-devel
 BuildRequires: openssl
 BuildRequires: openssl-devel
 BuildRequires: patch
-%if 0%{?rhel} && 0%{?rhel} < 7
-BuildRequires: python27
-BuildRequires: python27-scldevel
-%else %if 0%{?rhel} && 0%{?rhel} >= 8
-BuildRequires: python2
 BuildRequires: python2-devel
-%endif
+BuildRequires: python3
+BuildRequires: python3-devel
 BuildRequires: subversion-devel
 BuildRequires: tar
 BuildRequires: unzip
@@ -101,9 +97,6 @@ BuildRequires: wget
 BuildRequires: zlib-devel
 BuildRequires: libffi-devel
 
-%if 0%{?rhel} && 0%{?rhel} < 7
-Requires:      daemonize
-%endif
 Requires:      java-%{JAVA_VERSION}-headless
 Requires:      mesos >= %{MESOS_VERSION}
 
@@ -119,11 +112,7 @@ Summary: A client for scheduling services against the Aurora scheduler
 Group: Development/Tools
 
 Requires: krb5-libs
-%if 0%{?rhel} && 0%{?rhel} < 7
-Requires: python27
-%else
-Requires: python2
-%endif
+Requires: python3
 
 %description -n aurora-tools
 A set of command-line applications used for interacting with and administering Aurora
@@ -136,11 +125,7 @@ Group: Applications/System
 
 Requires: mesos >= %{MESOS_VERSION}
 Requires: cyrus-sasl
-%if 0%{?rhel} && 0%{?rhel} < 7
-Requires: python27
-%else
-Requires: python2
-%endif
+Requires: python3
 
 %description -n aurora-executor
 Thermos a simple process management framework used for orchestrating dependent processes
@@ -153,19 +138,8 @@ state of all running tasks.
 %setup -n apache-aurora-%{AURORA_INTERNAL_VERSION}
 
 %build
-# Preferences SCL-installed Python 2.7 if we're building on EL6.
-%if 0%{?rhel} && 0%{?rhel} < 7
-export PATH=/opt/rh/python27/root/usr/bin${PATH:+:${PATH}}
-export LD_LIBRARY_PATH=/opt/rh/python27/root/usr/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
-export MANPATH=/opt/rh/python27/root/usr/share/man:${MANPATH}
-# For systemtap
-export XDG_DATA_DIRS=/opt/rh/python27/root/usr/share${XDG_DATA_DIRS:+:${XDG_DATA_DIRS}}
-# For pkg-config
-export PKG_CONFIG_PATH=/opt/rh/python27/root/usr/lib64/pkgconfig${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}
-%endif
-
-# Preferences Java 1.8 over any other Java version.
-export PATH=/usr/lib/jvm/java-1.8.0/bin:${PATH}
+# Preferences Java 11 over any other Java version.
+export PATH=/usr/lib/jvm/java-11-openjdk/bin:${PATH}
 
 # Downloads Gradle executable.
 wget %{GRADLE_BASEURL}/gradle-%{GRADLE_VERSION}-bin.zip
@@ -178,22 +152,33 @@ unzip gradle-%{GRADLE_VERSION}-bin.zip
 # This avoids building mesos to produce them.
 %{__mkdir_p} %{buildroot}
 %{__cp} %{SOURCE12} %{buildroot}
-export PANTS_CONFIG_FILES="%{buildroot}/aurora-pants.ini"
+# export PANTS_CONFIG_FILES="%{buildroot}/aurora-pants.ini"
+
+export PANTS_WORKDIR="${PANTS_WORKDIR:-.pants.d}"
+export PANTS_BOOTSTRAPDIR="${PANTS_BOOTSTRAPDIR:-.pants.d/bootstrap}"
+export PANTS_LOCAL_STORE_DIR="${PANTS_LOCAL_STORE_DIR:-.pants.d/lmdb_store}"
+export PANTS_PYTHON="${PANTS_PYTHON:-${PYTHON:-/usr/bin/python3.9}}"
+export PANTS_PYTHON_INTERPRETER_CONSTRAINTS="${PANTS_PYTHON_INTERPRETER_CONSTRAINTS:-[\"CPython==3.9.*\"]}"
+export PANTS_PYTHON_BOOTSTRAP_SEARCH_PATH="${PANTS_PYTHON_BOOTSTRAP_SEARCH_PATH:-[\"${PYTHON:-/usr/bin/python3.9}\"]}"
 
 # Builds Aurora client PEX binaries.
-./pants binary src/main/python/apache/aurora/kerberos:kaurora
-mv dist/kaurora.pex dist/aurora.pex
-./pants binary src/main/python/apache/aurora/kerberos:kaurora_admin
-mv dist/kaurora_admin.pex dist/aurora_admin.pex
+PYTHON=${PYTHON:-/usr/bin/python3.9} ./pants package src/main/python/apache/aurora/kerberos:kaurora
+mv dist/src.main.python.apache.aurora.kerberos/kaurora.pex dist/aurora.pex
+PYTHON=${PYTHON:-/usr/bin/python3.9} ./pants package src/main/python/apache/aurora/kerberos:kaurora_admin
+mv dist/src.main.python.apache.aurora.kerberos/kaurora_admin.pex dist/aurora_admin.pex
 
 # Builds Aurora Thermos and GC executor PEX binaries.
-./pants binary src/main/python/apache/aurora/executor:thermos_executor
-./pants binary src/main/python/apache/aurora/tools:thermos
-./pants binary src/main/python/apache/aurora/tools:thermos_observer
-./pants binary src/main/python/apache/thermos/runner:thermos_runner
+PYTHON=${PYTHON:-/usr/bin/python3.9} ./pants package src/main/python/apache/aurora/executor:thermos_executor
+mv dist/src.main.python.apache.aurora.executor/thermos_executor.pex dist/thermos_executor.pex
+PYTHON=${PYTHON:-/usr/bin/python3.9} ./pants package src/main/python/apache/aurora/tools:thermos
+mv dist/src.main.python.apache.aurora.tools/thermos.pex dist/thermos.pex
+PYTHON=${PYTHON:-/usr/bin/python3.9} ./pants package src/main/python/apache/aurora/tools:thermos_observer
+mv dist/src.main.python.apache.aurora.tools/thermos_observer.pex dist/thermos_observer.pex
+PYTHON=${PYTHON:-/usr/bin/python3.9} ./pants package src/main/python/apache/thermos/runner:thermos_runner
+mv dist/src.main.python.apache.thermos.runner/thermos_runner.pex dist/thermos_runner.pex
 
 # Packages the Thermos runner within the Thermos executor.
-%{__python2} build-support/embed_runner_in_executor.py
+%{__python3} build-support/embed_runner_in_executor.py
 
 %define debug_package %{nil}
 %install
@@ -223,13 +208,8 @@ for pex_binary in %{PEX_BINARIES}; do
 done
 
 # Installs all support scripting.
-%if 0%{?fedora} || 0%{?rhel} > 6
 install -m 644 %{SOURCE1} %{buildroot}%{_sysconfdir}/systemd/system/aurora-scheduler.service
 install -m 644 %{SOURCE2} %{buildroot}%{_sysconfdir}/systemd/system/thermos.service
-%else
-install -m 755 %{SOURCE3} %{buildroot}%{_sysconfdir}/init.d/aurora-scheduler
-install -m 755 %{SOURCE4} %{buildroot}%{_sysconfdir}/init.d/thermos
-%endif
 
 install -m 755 %{SOURCE5} %{buildroot}%{_bindir}/aurora-scheduler-startup
 install -m 755 %{SOURCE6} %{buildroot}%{_bindir}/thermos-startup
@@ -252,50 +232,24 @@ exit 0
 
 # Pre/post installation scripts:
 %post
-%if 0%{?fedora} || 0%{?rhel} > 6
 %systemd_post aurora-scheduler.service
 systemctl daemon-reload
-%else
-/sbin/chkconfig --add aurora-scheduler
-%endif
 
 %preun
-%if 0%{?fedora} || 0%{?rhel} > 6
 %systemd_preun aurora-scheduler.service
-%else
-/sbin/service aurora-scheduler stop >/dev/null 2>&1
-/sbin/chkconfig --del aurora-scheduler
-%endif
 
 %postun
-%if 0%{?fedora} || 0%{?rhel} > 6
 %systemd_postun_with_restart aurora-scheduler.service
-%else
-/sbin/service aurora-scheduler start >/dev/null 2>&1
-%endif
 
 
 %post -n aurora-executor
-%if 0%{?fedora} || 0%{?rhel} > 6
 %systemd_post thermos.service
-%else
-/sbin/chkconfig --add thermos
-%endif
 
 %preun -n aurora-executor
-%if 0%{?fedora} || 0%{?rhel} > 6
 %systemd_preun thermos.service
-%else
-/sbin/service thermos stop >/dev/null 2>&1
-/sbin/chkconfig --del thermos
-%endif
 
 %postun -n aurora-executor
-%if 0%{?fedora} || 0%{?rhel} > 6
 %systemd_postun_with_restart thermos.service
-%else
-/sbin/service thermos start >/dev/null 2>&1
-%endif
 
 
 %files
@@ -307,11 +261,7 @@ systemctl daemon-reload
 %{_prefix}/lib/aurora/bin/*
 %{_prefix}/lib/aurora/etc/*
 %{_prefix}/lib/aurora/lib/*
-%if 0%{?fedora} || 0%{?rhel} > 6
 %{_sysconfdir}/systemd/system/aurora-scheduler.service
-%else
-%{_sysconfdir}/init.d/aurora-scheduler
-%endif
 %config(noreplace) %{_sysconfdir}/logrotate.d/aurora-scheduler
 %config(noreplace) %{_sysconfdir}/sysconfig/aurora-scheduler
 
@@ -332,21 +282,17 @@ systemctl daemon-reload
 %{_bindir}/thermos-startup
 %{_localstatedir}/log/thermos
 %{_localstatedir}/run/thermos
-%if 0%{?fedora} || 0%{?rhel} > 6
 %{_sysconfdir}/systemd/system/thermos.service
-%else
-%{_sysconfdir}/init.d/thermos
-%endif
 %config(noreplace) %{_sysconfdir}/logrotate.d/thermos
 %config(noreplace) %{_sysconfdir}/sysconfig/thermos
 
 
 %changelog
-* Fri Mar 16 2024 Apache Aurora <thinker0@apache.org> 0.23.0-1.el7
+* Sat Mar 16 2024 Apache Aurora <thinker0@apache.org> 0.23.0-1.el7
 - Updated to Apache Aurora 0.23.0
 - Support rocky-linux 8
 
-* Mon Jun 21 2016 Apache Aurora <dev@aurora.apache.org> 0.13.0-1.el7
+* Tue Jun 21 2016 Apache Aurora <dev@aurora.apache.org> 0.13.0-1.el7
 - Updated to Apache Aurora 0.13.0
 - Renamed the aurora service and all associated configurations to
   aurora-scheduler.

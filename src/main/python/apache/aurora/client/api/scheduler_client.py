@@ -13,6 +13,7 @@
 #
 
 import functools
+import inspect
 import threading
 import time
 import traceback
@@ -111,7 +112,8 @@ class SchedulerClient(object):
             _bypass_leader_redirect_session_factory,
             should_bypass=self._bypass_leader_redirect))
 
-    protocol = TBinaryProtocol.TBinaryProtocolAccelerated(transport)
+    # Avoid fastbinary encoder issues on newer Python/thrift combos.
+    protocol = TBinaryProtocol.TBinaryProtocol(transport)
     schedulerClient = AuroraAdmin.Client(protocol)
     for _ in range(self.THRIFT_RETRIES):
       try:
@@ -137,7 +139,16 @@ class ZookeeperSchedulerClient(SchedulerClient):
     if cluster.scheduler_zk_path is None:
       raise ValueError('Cluster has no defined scheduler path, must specify scheduler_zk_path '
                        'in your cluster config!')
-    hosts = [h + ':{p}' for h in cluster.zk.split(',')]
+    hosts = []
+    for host in cluster.zk.split(','):
+      host = host.strip()
+      if not host:
+        continue
+      # Preserve explicit ports; only append the default when no port is provided.
+      if host.rsplit(':', 1)[-1].isdigit():
+        hosts.append(host)
+      else:
+        hosts.append(host + ':{p}')
     zk = TwitterKazooClient.make(str(','.join(hosts).format(p=port)), verbose=verbose)
     return zk, ServerSet(zk, cluster.scheduler_zk_path, **kw)
 
@@ -173,13 +184,22 @@ class ZookeeperSchedulerClient(SchedulerClient):
     if len(serverset_endpoints) == 0:
       raise self.CouldNotConnect('No schedulers detected in %s!' % self._cluster.name)
     instance = serverset_endpoints[0]
-    if 'https' in instance.additional_endpoints:
-      endpoint = instance.additional_endpoints['https']
+    additional = (getattr(instance, 'additional_endpoints', None) or
+                  getattr(instance, 'additionalEndpoints', {}) or {})
+    if 'https' in additional:
+      endpoint = additional['https']
       self._uri = 'https://%s:%s' % (endpoint.host, endpoint.port)
-    elif 'http' in instance.additional_endpoints:
-      endpoint = instance.additional_endpoints['http']
+    elif 'http' in additional:
+      endpoint = additional['http']
       self._uri = 'http://%s:%s' % (endpoint.host, endpoint.port)
-    zk.stop()
+    else:
+      # Fall back to the primary service endpoint if no additional endpoints are present.
+      endpoint = (getattr(instance, 'service_endpoint', None) or
+                  getattr(instance, 'serviceEndpoint', None))
+      if endpoint:
+        self._uri = 'http://%s:%s' % (endpoint.host, endpoint.port)
+    if hasattr(zk, 'stop'):
+      zk.stop()
 
   def _connect(self):
     if self._uri is None:
@@ -304,7 +324,7 @@ class SchedulerProxy(object):
 
     @functools.wraps(method)
     def method_wrapper(*args, **kwargs):
-      retry = kwargs.get('retry', False)
+      retry = kwargs.pop('retry', False)
       with self._lock:
         start = time.time()
         while not self._terminating.is_set() and (
@@ -314,7 +334,23 @@ class SchedulerProxy(object):
             if not callable(method):
               return method
 
-            resp = method(*args)
+            try:
+              resp = method(*args, **kwargs)
+            except TypeError:
+              # Fill any missing required positional args with None for legacy callers that omit
+              # optional thrift parameters (e.g. message or query).
+              sig = inspect.signature(method)
+              new_args = list(args)
+              params = list(sig.parameters.values())
+              while True:
+                try:
+                  resp = method(*new_args, **kwargs)
+                  break
+                except TypeError as e:
+                  missing_count = len(params) - len(new_args)
+                  if missing_count <= 0:
+                    raise
+                  new_args.append(None)
             if resp is not None and resp.responseCode == ResponseCode.ERROR_TRANSIENT:
               raise self.TransientError(", ".join(
                   [m.message for m in resp.details] if resp.details else []))

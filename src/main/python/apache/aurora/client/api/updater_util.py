@@ -81,10 +81,10 @@ class UpdaterConfig(object):
     if not instances:
       return None
 
-    ranges = set()
-    for _, group in groupby(enumerate(instances), lambda(element, position): element - position):
-      range_seq = map(itemgetter(1), group)
-      ranges.add(Range(first=range_seq[0], last=range_seq[-1]))
+    ranges = []
+    for _, group in groupby(enumerate(instances), lambda pair: pair[0] - pair[1]):
+      range_seq = list(map(itemgetter(1), group))
+      ranges.append(Range(first=range_seq[0], last=range_seq[-1]))
     return ranges
 
   def to_thrift_update_settings(self, instances=None):

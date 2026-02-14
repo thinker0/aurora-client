@@ -30,8 +30,8 @@ RUN yum install -y \
     openssl \
     openssl-devel \
     patch \
-    python2 \
-    python2-devel \
+    python3 \
+    python3-devel \
     subversion-devel \
     tar \
     unzip \
