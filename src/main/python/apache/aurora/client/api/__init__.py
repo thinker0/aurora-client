@@ -26,27 +26,33 @@ from .updater_util import UpdaterConfig
 
 from gen.apache.aurora.api.constants import LIVE_STATES
 from gen.apache.aurora.api.ttypes import (
+    Attribute,
+    ConfigGroup,
+    Constraint,
     ExplicitReconciliationSettings,
     HostStatus,
     InstanceKey,
+    InstanceTaskConfig,
     JobKey,
     JobUpdateKey,
     JobUpdateQuery,
     JobUpdateRequest,
+    JobConfiguration,
+    JobSummary,
+    MesosFetcherURI,
     Metadata,
+    PendingReason,
     PercentageSlaPolicy,
+    Range,
     Resource,
     ResourceAggregate,
+    RoleSummary,
+    ScheduledTask,
     SlaPolicy,
     TaskQuery,
+    TaskConfig,
     TierConfig,
-    Range,
-    ConfigGroup,
-    TaskConfig
 )
-
-if getattr(HostStatus, '__hash__', None) is None:
-  HostStatus.__hash__ = object.__hash__
 
 def _to_hashable(value):
   if value is None or isinstance(value, (str, int, float, bool, bytes)):
@@ -68,7 +74,25 @@ def _thrift_struct_hash(self):
   return hash(_to_hashable(self))
 
 # Thrift structs used in sets must be hashable for Python 3 deserialization.
-for _cls in (TierConfig, Range, ConfigGroup, TaskConfig):
+for _cls in (
+    Attribute,
+    ConfigGroup,
+    Constraint,
+    HostStatus,
+    InstanceTaskConfig,
+    JobConfiguration,
+    JobKey,
+    JobSummary,
+    MesosFetcherURI,
+    Metadata,
+    PendingReason,
+    Range,
+    Resource,
+    RoleSummary,
+    ScheduledTask,
+    TaskConfig,
+    TierConfig,
+):
   if getattr(_cls, '__hash__', None) is None:
     _cls.__hash__ = _thrift_struct_hash
 
