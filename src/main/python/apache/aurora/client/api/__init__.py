@@ -38,11 +38,39 @@ from gen.apache.aurora.api.ttypes import (
     Resource,
     ResourceAggregate,
     SlaPolicy,
-    TaskQuery
+    TaskQuery,
+    TierConfig,
+    Range,
+    ConfigGroup,
+    TaskConfig
 )
 
 if getattr(HostStatus, '__hash__', None) is None:
   HostStatus.__hash__ = object.__hash__
+
+def _to_hashable(value):
+  if value is None or isinstance(value, (str, int, float, bool, bytes)):
+    return value
+  if isinstance(value, dict):
+    return tuple(sorted((k, _to_hashable(v)) for k, v in value.items()))
+  if isinstance(value, (list, tuple)):
+    return tuple(_to_hashable(v) for v in value)
+  if isinstance(value, set):
+    return tuple(sorted((_to_hashable(v) for v in value), key=repr))
+  if hasattr(value, '__dict__'):
+    return (
+      value.__class__.__name__,
+      tuple(sorted((k, _to_hashable(v)) for k, v in value.__dict__.items()))
+    )
+  return repr(value)
+
+def _thrift_struct_hash(self):
+  return hash(_to_hashable(self))
+
+# Thrift structs used in sets must be hashable for Python 3 deserialization.
+for _cls in (TierConfig, Range, ConfigGroup, TaskConfig):
+  if getattr(_cls, '__hash__', None) is None:
+    _cls.__hash__ = _thrift_struct_hash
 
 
 class AuroraClientAPI(object):
