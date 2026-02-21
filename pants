@@ -12,6 +12,11 @@
 
 set -eou pipefail
 
+# Dynamically set find-links to the local wheels directory to avoid hardcoding paths.
+: "${PANTS_PYTHON_REPOS_FIND_LINKS:="file://$PWD/3rdparty/python/wheels"}"
+export PANTS_PYTHON_REPOS_FIND_LINKS
+
+
 # Default to the system Python for Pants bootstrapping unless explicitly overridden.
 : "${PYTHON:=/usr/bin/python3}"
 export PYTHON

@@ -61,10 +61,6 @@ thrift_search_paths = [
 
 [python-repos]
 indexes = []
-find_links = [
-  "file:///dist/rpmbuild/BUILD/apache-aurora-0.23.3/3rdparty/python/wheels",
-  "file:///Users/thinker0/opensource/aurora-client/3rdparty/python/wheels",
-]
 
 [python-infer]
 imports = false
