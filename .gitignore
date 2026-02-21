@@ -51,3 +51,10 @@ scratch/
 python3.8-uv/
 
 3rdparty/python/wheels
+
+# Local build and sync scripts
+copy-sync-rpms.sh
+build-aurora-executor.sh
+build-all.sh
+rsync-aurora-package.sh
+test-tools.sh
