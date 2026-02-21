@@ -48,7 +48,7 @@ resolves = { python-default = "3rdparty/python/lock.txt", python-admin = "3rdpar
 
 [python-bootstrap]
 search_path = [
-  "/usr/bin/python3.9",
+  "<PATH>", "/usr/bin/python3.9", "/opt/homebrew/bin/python3.9",
 ]
 
 [apache-thrift]
