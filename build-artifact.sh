@@ -84,8 +84,7 @@ run_build() {
     -t "$IMAGE_NAME" /build.sh
     
   container=$(docker ps -l -q)
-  docker cp $container:/dist "$artifact_dir"
-  docker rm "$container"
+  docker rm "$container" || true
 
   echo "Produced artifacts in $artifact_dir:"
   ls -R "$artifact_dir"

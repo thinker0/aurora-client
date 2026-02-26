@@ -87,7 +87,9 @@ BuildRequires: libcurl-devel
 BuildRequires: openssl
 BuildRequires: openssl-devel
 BuildRequires: patch
+%if 0%{?rhel} && 0%{?rhel} < 9
 BuildRequires: python2-devel
+%endif
 BuildRequires: python3
 BuildRequires: python3-devel
 BuildRequires: subversion-devel
