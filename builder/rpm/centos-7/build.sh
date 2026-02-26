@@ -35,9 +35,8 @@ export PANTS_PYTHON_BOOTSTRAP_SEARCH_PATH='["/usr/bin/python3.8"]'
 export TAR_OPTIONS="--no-same-owner"
 
 make srpm
-/usr/bin/sed -i '1s|/usr/bin/python|/usr/bin/python2|' /usr/libexec/urlgrabber-ext-down
-/usr/bin/python2 /usr/bin/yum-builddep -y ../../../dist/rpmbuild/SRPMS/*
-/usr/bin/python2 /usr/bin/yum remove -y git
+yum-builddep -y ../../../dist/rpmbuild/SRPMS/*
+yum remove -y git
 
 # Build wheels inside the container and repack the source tarball
 # so rpmbuild uses the updated wheelhouse.
@@ -63,6 +62,6 @@ rpmbuild \
   --define "GRADLE_VERSION ${GRADLE_VERSION}" \
   -ba aurora.spec
 
-/usr/bin/python2 /usr/bin/yum -y install createrepo
+yum -y install createrepo
 cd ../../../dist/rpmbuild/RPMS/x86_64
-/usr/bin/python2 /usr/bin/createrepo .
+createrepo .
