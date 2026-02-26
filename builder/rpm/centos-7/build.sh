@@ -63,6 +63,6 @@ rpmbuild \
   --define "GRADLE_VERSION ${GRADLE_VERSION}" \
   -ba aurora.spec
 
-yum -y install createrepo
+/usr/bin/python2 /usr/bin/yum -y install createrepo
 cd ../../../dist/rpmbuild/RPMS/x86_64
-createrepo .
+/usr/bin/python2 /usr/bin/createrepo .
