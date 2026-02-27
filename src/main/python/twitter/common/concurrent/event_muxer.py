@@ -45,7 +45,7 @@ class EventMuxer(object):
       self.parentq.put(self.event.wait(timeout=self.timeout))
 
   def __init__(self, *events):
-    if not all(isinstance(arg, threading._Event) for arg in events):
+    if not all(hasattr(arg, 'is_set') and hasattr(arg, 'wait') for arg in events):
       raise ValueError("arguments must be threading.Events()!")
     self._lock = threading.Lock()
     self._queue = Queue()

@@ -17,6 +17,7 @@ python_sources(
   name = '_executor',
   sources = ['*.py', '**/*.py'],
   dependencies = [
+    '3rdparty/python#compactor',
     '3rdparty/python#pesos',
     '3rdparty/python#pex',
     # To prevent an alpha version of protobuf from being pulled down by pants we
@@ -43,6 +44,7 @@ pex_binary(
     ':_executor',
     # TODO(ksweeney): This violates the rule that every library export the same deps as its
     # contained binaries.
+    '3rdparty/python#compactor',
     '3rdparty/python#pesos',
   ],
   # The binary can only build when the native Mesos dependency has been prefetched. This tag

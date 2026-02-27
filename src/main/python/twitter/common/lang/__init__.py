@@ -111,7 +111,10 @@ class Compatibility(object):
   integer = (Integral,)
   real = (Real,)
   numeric = integer + real
-  string = (str,) if PY3 else (str, unicode)
+  try:
+      string = (str,) if PY3 else (str, unicode)
+  except NameError:
+      string = (str,)
   bytes = (bytes,)
 
   if PY2:

@@ -263,7 +263,7 @@ class HttpServer(object):
 
   def __str__(self):
     return 'HttpServer(%s, mixins: %s)' % (
-        '%s:%s' (self.hostname, self.port) if self.hostname else 'unbound',
+        ('%s:%s' % (self.hostname, self.port)) if self.hostname else 'unbound',
         ', '.join(self.source_name(instance) for instance in self._mounts))
 
 

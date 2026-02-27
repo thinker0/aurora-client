@@ -70,7 +70,7 @@ class TaskMonitor(object):
 
       updated = False
       if self._ckpt_head < ckpt_offset:
-        with open(self._runner_ckpt, 'r') as fp:
+        with open(self._runner_ckpt, 'rb') as fp:
           fp.seek(self._ckpt_head)
           rr = ThriftRecordReader(fp, RunnerCkpt)
           while True:

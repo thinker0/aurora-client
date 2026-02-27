@@ -40,7 +40,7 @@ def read(args, options):
 
   dispatcher = CheckpointDispatcher()
   state = RunnerState(processes={})
-  with open(args[0], 'r') as fp:
+  with open(args[0], 'rb') as fp:
     try:
       for record in ThriftRecordReader(fp, RunnerCkpt):
         if not options.simple:

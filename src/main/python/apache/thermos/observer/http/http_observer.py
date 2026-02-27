@@ -75,6 +75,8 @@ class BasicAuth(Plugin):
     try:
       val = self._authRedis.get(self._key_prefix + '%s' % user)
       if user is not None and val is not None:
+        if isinstance(val, bytes):
+          val = val.decode('utf-8')
         log.debug('redis get: %s=%s' % (user, val))
         return val
     except Exception as e:
@@ -88,7 +90,7 @@ class BasicAuth(Plugin):
 
   def apply(self, callback, context):
     user, password = request.auth or (None, None)
-    user_hash = hashlib.sha256('%s:%s' % (user, password)).hexdigest()
+    user_hash = hashlib.sha256(('%s:%s' % (user, password)).encode('utf-8')).hexdigest()
     if (user is not None and password is not None
         and self.get_user(user) == 'sha256:%s' % user_hash):
       log.debug('Success Authorization user=%s' % user)
@@ -96,7 +98,7 @@ class BasicAuth(Plugin):
 
     def wrap(*args, **kwargs):
       user, password = request.auth or (None, None)
-      user_hash = hashlib.sha256('%s:%s' % (user, password)).hexdigest()
+      user_hash = hashlib.sha256(('%s:%s' % (user, password)).encode('utf-8')).hexdigest()
       if (user is not None and password is not None
           and self.get_user(user) == 'sha256:%s' % user_hash):
         log.info('Success Authorization user=%s, hash=256:%s' % (user, user_hash))

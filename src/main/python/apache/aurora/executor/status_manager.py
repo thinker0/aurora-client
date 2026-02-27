@@ -14,7 +14,7 @@
 
 import time
 
-from pesos.mesos_pb2 import TaskState
+from pesos.vendor.mesos.mesos_pb2 import TaskState
 from twitter.common import log
 from twitter.common.exceptions import ExceptionalThread
 from twitter.common.quantity import Amount, Time

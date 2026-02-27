@@ -85,5 +85,9 @@ class RingBuffer(list):
     return "RingBuffer(size=%s, %s)" % (self._size, str(self))
 
   def __iter__(self):
-    for x in xrange(0, self._count):
+    try:
+      _range = xrange
+    except NameError:
+      _range = range
+    for x in _range(0, self._count):
       yield self[x]

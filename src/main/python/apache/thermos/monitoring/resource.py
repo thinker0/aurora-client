@@ -79,7 +79,7 @@ class ResourceMonitorBase(Interface):
 
   class FullResourceResult(namedtuple('FullResourceResult', 'proc_usage disk_usage')):
     """ Class representing detailed information on task level stats:
-        proc_usage: a dictionary mapping ProcessStatus objects to ProcResourceResult objects. One
+        proc_usage: a dictionary mapping process_name (string) objects to ProcResourceResult objects. One
                     entry per process in the task
         disk_usage: disk usage consumed in the task's sandbox
     """
@@ -238,17 +238,17 @@ class TaskResourceMonitor(ResourceMonitorBase, ExceptionalThread):
       raise ValueError('No active process found with name "%s" in this task' % process_name)
     else:
       # Since this might be called out of band (before the main loop is aware of the process)
-      if process not in self._process_collectors:
-        self._process_collectors[process] = ProcessTreeCollector(process.pid)
+      if process.process not in self._process_collectors:
+        self._process_collectors[process.process] = ProcessTreeCollector(process.pid)
 
       # The sample obtained from history is tuple of (timestamp, FullResourceResult), and per
       # process sample can be lookup up from FullResourceResult
       _, full_resources = self._history.get(time.time())
-      if process in full_resources.proc_usage:
-        return full_resources.proc_usage[process].process_sample
+      if process.process in full_resources.proc_usage:
+        return full_resources.proc_usage[process.process].process_sample
 
-      self._process_collectors[process].sample()
-      return self._process_collectors[process].value
+      self._process_collectors[process.process].sample()
+      return self._process_collectors[process.process].value
 
   def _get_active_processes(self):
     """Get a list of ProcessStatus objects representing currently-running processes in the task"""
@@ -271,13 +271,13 @@ class TaskResourceMonitor(ResourceMonitorBase, ExceptionalThread):
 
       if now > next_process_collection:
         next_process_collection = now + self._process_collection_interval
-        actives = set(self._get_active_processes())
+        actives = {p.process: p for p in self._get_active_processes()}
         current = set(self._process_collectors)
-        for process in current - actives:
-          self._process_collectors.pop(process)
-        for process in actives - current:
-          self._process_collectors[process] = ProcessTreeCollector(process.pid)
-        for process, collector in self._process_collectors.items():
+        for process_name in current - set(actives):
+          self._process_collectors.pop(process_name)
+        for process_name in set(actives) - current:
+          self._process_collectors[process_name] = ProcessTreeCollector(actives[process_name].pid)
+        for process_name, collector in self._process_collectors.items():
           collector.sample()
 
       if now > next_disk_collection:
@@ -295,8 +295,8 @@ class TaskResourceMonitor(ResourceMonitorBase, ExceptionalThread):
         disk_usage = self._disk_collector.value if self._disk_collector else 0
 
         proc_usage_dict = dict()
-        for process, collector in self._process_collectors.items():
-          proc_usage_dict.update({process: self.ProcResourceResult(collector.value,
+        for process_name, collector in self._process_collectors.items():
+          proc_usage_dict.update({process_name: self.ProcResourceResult(collector.value,
               collector.procs)})
 
         self._history.add(now, self.FullResourceResult(proc_usage_dict, disk_usage))

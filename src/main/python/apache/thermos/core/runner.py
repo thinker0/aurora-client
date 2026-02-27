@@ -609,7 +609,7 @@ class TaskRunner(object):
     """
     ckpt_file = self._pathspec.getpath('runner_checkpoint')
     if os.path.exists(ckpt_file):
-      with open(ckpt_file, 'r') as fp:
+      with open(ckpt_file, 'rb') as fp:
         ckpt_recover = ThriftRecordReader(fp, RunnerCkpt)
         for record in ckpt_recover:
           log.debug('Replaying runner checkpoint record: %s', record)

@@ -21,4 +21,4 @@ class HttpTemplate(object):
   @staticmethod
   def load(name):
     return pkg_resources.resource_string(
-        __name__, os.path.join('templates', '%s.tpl' % name))
+        __name__, os.path.join('templates', '%s.tpl' % name)).decode('utf-8')

@@ -49,7 +49,7 @@ class ProcessMuxer(object):
         process_ckpt = self._pathspec.given(process=process_name).getpath('process_checkpoint')
         log.debug('ProcessMuxer binding %s => %s', process_name, process_ckpt)
         try:
-          self._processes[process_name] = open(process_ckpt, 'r')  # noqa
+          self._processes[process_name] = open(process_ckpt, 'rb')  # noqa
         except IOError as e:
           if e.errno == errno.ENOENT:
             log.debug('  => bind failed, checkpoint not available yet.')

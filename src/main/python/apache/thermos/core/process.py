@@ -209,7 +209,7 @@ class ProcessBase(object):
   def _setup_ckpt(self):
     """Set up the checkpoint: must be run on the parent."""
     self._log('initializing checkpoint file: %s' % self.ckpt_file())
-    ckpt_fp = lock_file(self.ckpt_file(), "a+")
+    ckpt_fp = lock_file(self.ckpt_file(), "a+b")
     if ckpt_fp in (None, False):
       raise self.CheckpointError('Could not acquire checkpoint permission or lock for %s!' %
         self.ckpt_file())
@@ -226,7 +226,7 @@ class ProcessBase(object):
     """Wait for control of the checkpoint stream: must be run in the child."""
     total_wait_time = Amount(0, Time.SECONDS)
 
-    with open(self.ckpt_file(), 'r') as fp:
+    with open(self.ckpt_file(), 'rb') as fp:
       fp.seek(self._ckpt_head)
       rr = ThriftRecordReader(fp, RunnerCkpt)
       while total_wait_time < self.MAXIMUM_CONTROL_WAIT:

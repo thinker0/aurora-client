@@ -79,7 +79,7 @@ args['universal_handler'] = AngryHandler
 runner = TaskRunner(task, '%(root)s', sandbox, **args)
 runner.run()
 
-with open('%(state_filename)s', 'w') as fp:
+with open('%(state_filename)s', 'wb') as fp:
   fp.write(thrift_serialize(runner.state))
 """
 
@@ -158,7 +158,7 @@ with open('%(state_filename)s', 'w') as fp:
             config, so, se))
 
     try:
-      with open(self.state_filename, 'r') as fp:
+      with open(self.state_filename, 'rb') as fp:
         self.state = thrift_deserialize(RunnerState(), fp.read())
     except Exception as e:
       if 'THERMOS_DEBUG' in os.environ:

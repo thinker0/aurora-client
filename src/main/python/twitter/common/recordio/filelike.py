@@ -19,6 +19,12 @@
 import errno
 import os
 
+try:
+  file_type = file
+except NameError:
+  import io
+  file_type = io.IOBase
+
 from twitter.common import log
 
 
@@ -48,7 +54,7 @@ class FileLike(object):
   def get(fp):
     if isinstance(fp, _VALID_STRINGIO_CLASSES):
       return StringIOFileLike(fp)
-    elif isinstance(fp, file):
+    elif isinstance(fp, file_type):
       return FileLike(fp)
     elif isinstance(fp, FileLike):
       return fp

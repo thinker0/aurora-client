@@ -42,6 +42,10 @@ class ScanfResult(object):
     return iter(self._list)
 
 
+class _StringWrapper(object):
+  def __init__(self, val):
+    self.value = val
+
 class ScanfParser(object):
   class ParseError(Exception): pass
 
@@ -49,26 +53,30 @@ class ScanfParser(object):
     Partial scanf emulator.
   """
   CONVERSIONS = {
-     "c": (".", c_char),
+     "c": (".", _StringWrapper),
      "d": ("[-+]?\d+", c_int),
      "ld": ("[-+]?\d+", c_long),
      "lld": ("[-+]?\d+", c_longlong),
      "f": (r"[-+]?[0-9]*\.?[0-9]*(?:[eE][-+]?[0-9]+)?", c_float),
-     "s": ("\S+", c_char_p),
+     "s": ("\S+", _StringWrapper),
      "u": ("\d+", c_uint),
      "lu": ("\d+", c_ulong),
      "llu": ("\d+", c_ulonglong),
   }
 
+  try:
+    long_type = long
+  except NameError:
+    long_type = int
+
   # ctypes don't do str->int conversion, so must preconvert for non-string types
   PRECONVERSIONS = {
-    c_char: str,  # to cover cases like unicode
     c_int: int,
     c_long: int,
-    c_longlong: long if Compatibility.PY2 else int,
+    c_longlong: int if Compatibility.PY3 else long_type,
     c_uint: int,
     c_ulong: int,
-    c_ulonglong: long if Compatibility.PY2 else int,
+    c_ulonglong: int if Compatibility.PY3 else long_type,
     c_float: float,
     c_double: float
   }

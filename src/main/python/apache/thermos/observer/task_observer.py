@@ -99,7 +99,9 @@ class TaskObserver(ExceptionalThread, Lockable):
   @property
   def all_tasks(self):
     """Return a dictionary of all Tasks known by the TaskObserver"""
-    return dict(self.active_tasks.items() + self.finished_tasks.items())
+    res = dict(self.active_tasks)
+    res.update(self.finished_tasks)
+    return res
 
   def stop(self):
     self._stop_event.set()
