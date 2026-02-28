@@ -209,12 +209,13 @@ app.add_option(
 def dump_runner_pex():
   import pkg_resources
   import apache.aurora.executor.resources
+  import shutil
   pex_name = 'thermos_runner.pex'
   runner_pex = os.path.join(os.path.abspath(CWD), pex_name)
-  with open(runner_pex, 'w') as fp:
-    # TODO(wickman) Use shutil.copyfileobj to reduce memory footprint here.
-    fp.write(pkg_resources.resource_stream(
-        apache.aurora.executor.resources.__name__, pex_name).read())
+  with open(runner_pex, 'wb') as fp:
+    shutil.copyfileobj(
+        pkg_resources.resource_stream(apache.aurora.executor.resources.__name__, pex_name),
+        fp)
   return runner_pex
 
 
