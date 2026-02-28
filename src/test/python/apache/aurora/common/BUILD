@@ -15,11 +15,13 @@
 python_tests(
   name = 'common',
   sources = ['*.py'],
+  environment = 'local',
   dependencies = [
     '3rdparty/python#pystachio',
     'src/main/python/twitter/common:common_sources',
     'api/src/main/thrift/org/apache/aurora/gen',
     'src/main/python:admin_src',
     'src/main/python/apache/aurora/common',
+    'src/main/python:all_src',
   ]
 )

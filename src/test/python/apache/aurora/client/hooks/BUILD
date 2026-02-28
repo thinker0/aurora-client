@@ -14,9 +14,11 @@
 
 python_tests(name = 'hooks',
   sources = ['*.py'],
+  environment = 'local',
   dependencies = [
     'src/main/python:admin_src',
     'src/main/python/apache/aurora/common',
     'src/main/python/apache/aurora/client',
+    'src/main/python:all_src',
   ],
 )

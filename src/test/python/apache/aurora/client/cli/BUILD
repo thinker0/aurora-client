@@ -15,10 +15,12 @@
 python_tests(
   name = 'cli',
   sources = ['*.py', '!__init__.py'],
+  environment = 'local',
   dependencies = [
     'src/main/python/twitter/common:common_sources',
     'src/main/python:admin_src',
     'src/main/python/apache/aurora/client',
     'src/test/python/apache/aurora',
+    'src/main/python:all_src',
   ]
 )

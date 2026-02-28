@@ -2,8 +2,10 @@
 
 python_tests(
   name = 'executor',
-  sources = ['*.py'],
+  sources = ['test_*.py'],
+  environment = 'local',
   dependencies = [
     'src/main/python/apache/aurora/executor:executor',
+    'src/main/python:all_src',
   ],
 )

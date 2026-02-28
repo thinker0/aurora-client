@@ -15,8 +15,10 @@
 python_tests(
   name = 'health_check',
   sources = ['*py'],
+  environment = 'local',
   dependencies = [
     'src/main/python:admin_src',
     'src/main/python/apache/aurora/common',
+    'src/main/python:all_src',
   ]
 )

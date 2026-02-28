@@ -15,6 +15,7 @@
 python_tests(
   name = 'api',
   sources = ['*.py', '!__init__.py'],
+  environment = 'local',
   dependencies = [
     'api/src/main/thrift/org/apache/aurora/gen',
     'src/main/python:admin_src',
@@ -22,5 +23,6 @@ python_tests(
     'src/main/python/apache/aurora/common',
     'src/main/python/twitter/common/zookeeper:zookeeper',
     'src/test/python/apache/aurora/client:lib_fake_scheduler_proxy',
+    'src/main/python:all_src',
   ],
 )

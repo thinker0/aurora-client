@@ -15,6 +15,7 @@
 python_tests(
   name = 'config',
   sources = ['*py'],
+  environment = 'local',
   dependencies = [
     '3rdparty/python#requests-mock',
     'src/main/python/twitter/common:common_sources',
@@ -22,5 +23,6 @@ python_tests(
     'src/main/python:admin_src',
     'src/main/python/apache/aurora/config',
     'src/main/python/apache/aurora/client',
+    'src/main/python:all_src',
   ],
 )

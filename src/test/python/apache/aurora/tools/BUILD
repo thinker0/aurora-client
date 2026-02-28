@@ -17,5 +17,6 @@ target(
   dependencies = [
     'src/main/python:admin_src',
     'src/main/python/apache/aurora/tools:thermos_observer',
+    'src/main/python:all_src',
   ],
 )

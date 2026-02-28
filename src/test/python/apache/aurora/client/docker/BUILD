@@ -15,11 +15,13 @@
 python_tests(
   name = 'docker',
   sources = ['*py'],
+  environment = 'local',
   dependencies = [
     '3rdparty/python#requests',
     '3rdparty/python#requests-mock',
     'src/main/python/twitter/common:common_sources',
     'src/main/python:admin_src',
-    'src/main/python/apache/aurora/client'
+    'src/main/python/apache/aurora/client',
+    'src/main/python:all_src',
   ]
 )

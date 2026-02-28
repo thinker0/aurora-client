@@ -18,5 +18,8 @@ python_sources(
   dependencies = [
     'api/src/main/thrift/org/apache/aurora/gen',
     'src/main/python/apache/aurora/client',
+    'src/main/python/twitter/common:common_sources',
+    'src/test/python:test_root',
+    'src/main/python:all_src',
   ]
 )

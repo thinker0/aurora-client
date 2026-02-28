@@ -15,6 +15,7 @@
 python_tests(
   name = 'admin',
   sources = ['test_*.py'],
+  environment = 'local',
   dependencies = [
     'src/main/python/twitter/common:common_sources',
     'api/src/main/thrift/org/apache/aurora/gen',
@@ -24,6 +25,7 @@ python_tests(
     'src/main/python/apache/aurora/common',
     'src/test/python/apache/aurora',
     ':util_src',
+    'src/main/python:all_src',
   ],
 )
 

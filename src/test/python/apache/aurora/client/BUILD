@@ -15,12 +15,14 @@
 python_tests(
   name = 'client',
   sources = ['*.py', '!__init__.py'],
+  environment = 'local',
   dependencies = [
     '3rdparty/python#pystachio',
     'src/main/python/twitter/common:common_sources',
     'src/main/python:admin_src',
     'src/main/python/apache/aurora/client',
     'src/main/python/apache/aurora/config',
+    'src/main/python:all_src',
   ],
 )
 
