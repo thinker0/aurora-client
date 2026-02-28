@@ -35,6 +35,7 @@ python_sources(
     'src/main/python/apache/thermos/common',
     'src/main/python/apache/thermos/config',
     'src/main/python/apache/thermos/core',
+    'src/main/python/apache/thermos/monitoring',
   ],
 )
 

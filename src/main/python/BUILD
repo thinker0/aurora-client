@@ -39,10 +39,18 @@ python_sources(
     'twitter/**/*.py',
     'process_handle_ps.py',
     '!twitter/common/**',
+    '!apache/thermos/**',
   ],
   resolve = 'python-default',
   dependencies = [
     'src/main/python/twitter/common:common_sources',
+    'src/main/python/apache/thermos/cli',
+    'src/main/python/apache/thermos/common',
+    'src/main/python/apache/thermos/config',
+    'src/main/python/apache/thermos/core',
+    'src/main/python/apache/thermos/monitoring',
+    'src/main/python/apache/thermos/observer',
+    'src/main/python/apache/thermos/runner',
   ],
 )
 
@@ -55,10 +63,17 @@ python_sources(
     '!apache/aurora/executor/**',
     '!apache/aurora/executor/**/*.py',
     '!twitter/common/**',
+    '!apache/thermos/**',
   ],
   resolve = 'python-default',
   dependencies = [
     'src/main/python/twitter/common:common_sources',
+    'src/main/python/apache/thermos/cli',
+    'src/main/python/apache/thermos/common',
+    'src/main/python/apache/thermos/config',
+    'src/main/python/apache/thermos/core',
+    'src/main/python/apache/thermos/monitoring',
+    'src/main/python/apache/thermos/observer',
   ],
 )
 
