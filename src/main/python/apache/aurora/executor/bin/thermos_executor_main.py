@@ -212,15 +212,35 @@ app.add_option(
 # thermos_runner binaries on every machine and instead of embedding the pex
 # as a resource, shell out to one on the PATH.
 def dump_runner_pex():
-  import pkg_resources
-  import apache.aurora.executor.resources
-  import shutil
+  import zipfile
   pex_name = 'thermos_runner.pex'
   runner_pex = os.path.join(os.path.abspath(CWD), pex_name)
-  with open(runner_pex, 'wb') as fp:
-    shutil.copyfileobj(
-        pkg_resources.resource_stream(apache.aurora.executor.resources.__name__, pex_name),
-        fp)
+  resource_path = 'apache/aurora/executor/resources/' + pex_name
+
+  # Read directly from the running PEX zip to avoid using the unzipped cache,
+  # which contains a 0-byte placeholder at build time.
+  pex_file = os.environ.get('PEX', sys.argv[0])
+  extracted = False
+  if zipfile.is_zipfile(pex_file):
+    try:
+      with zipfile.ZipFile(pex_file, 'r') as zf:
+        info = zf.getinfo(resource_path)
+        if info.file_size > 0:
+          with zf.open(resource_path) as src, open(runner_pex, 'wb') as dst:
+            dst.write(src.read())
+          extracted = True
+    except (KeyError, Exception):
+      pass
+
+  if not extracted:
+    import pkg_resources
+    import apache.aurora.executor.resources
+    import shutil
+    with open(runner_pex, 'wb') as fp:
+      shutil.copyfileobj(
+          pkg_resources.resource_stream(apache.aurora.executor.resources.__name__, pex_name),
+          fp)
+
   return runner_pex
 
 
