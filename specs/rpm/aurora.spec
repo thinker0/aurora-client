@@ -186,15 +186,44 @@ mv dist/src.main.python.apache.aurora.kerberos/kaurora_admin.pex dist/aurora_adm
 # Builds Aurora Thermos and GC executor PEX binaries.
 PYTHON=${PYTHON:-/usr/bin/python3.9} ./pants package src/main/python/apache/aurora/executor:thermos_executor
 mv dist/src.main.python.apache.aurora.executor/thermos_executor.pex dist/thermos_executor.pex
+echo "thermos_executor.pex size before embed:"
+ls -l dist/thermos_executor.pex
 PYTHON=${PYTHON:-/usr/bin/python3.9} ./pants package src/main/python/apache/aurora/tools:thermos
 mv dist/src.main.python.apache.aurora.tools/thermos.pex dist/thermos.pex
 PYTHON=${PYTHON:-/usr/bin/python3.9} ./pants package src/main/python/apache/aurora/tools:thermos_observer
 mv dist/src.main.python.apache.aurora.tools/thermos_observer.pex dist/thermos_observer.pex
 PYTHON=${PYTHON:-/usr/bin/python3.9} ./pants package src/main/python/apache/thermos/runner:thermos_runner
 mv dist/src.main.python.apache.thermos.runner/thermos_runner.pex dist/thermos_runner.pex
+echo "thermos_runner.pex size before embed:"
+ls -l dist/thermos_runner.pex
 
 # Packages the Thermos runner within the Thermos executor.
 %{__python3} build-support/embed_runner_in_executor.py
+echo "embedded thermos_runner.pex entry after embed:"
+unzip -l dist/thermos_executor.pex | grep "apache/aurora/executor/resources/thermos_runner.pex"
+%{__python3} - <<'PY'
+import sys
+import zipfile
+from pathlib import Path
+
+runner_path = Path("dist/thermos_runner.pex")
+executor_path = Path("dist/thermos_executor.pex")
+resource_name = "apache/aurora/executor/resources/thermos_runner.pex"
+
+if not runner_path.is_file() or runner_path.stat().st_size == 0:
+    sys.exit("dist/thermos_runner.pex is missing or empty")
+
+if not executor_path.is_file():
+    sys.exit("dist/thermos_executor.pex is missing")
+
+with zipfile.ZipFile(executor_path) as zf:
+    try:
+        info = zf.getinfo(resource_name)
+    except KeyError:
+        sys.exit(f"{resource_name} missing from dist/thermos_executor.pex")
+    if info.file_size == 0:
+        sys.exit(f"{resource_name} is empty in dist/thermos_executor.pex")
+PY
 
 %define debug_package %{nil}
 %install
