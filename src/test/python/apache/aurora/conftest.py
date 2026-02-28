@@ -1,7 +1,8 @@
-# Lightweight kazoo stub to avoid pulling real kazoo dependency in tests.
-# Provides minimal classes used by twitter.common.zookeeper.kazoo_client.
 import sys
 import types
+
+# Lightweight kazoo stub to avoid pulling real kazoo dependency in tests.
+# Provides minimal classes used by twitter.common.zookeeper.kazoo_client.
 
 
 def _install_kazoo_stub():
@@ -79,4 +80,3 @@ def _install_kazoo_stub():
 
 
 _install_kazoo_stub()
-
