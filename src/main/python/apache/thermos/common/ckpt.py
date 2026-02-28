@@ -160,7 +160,7 @@ class CheckpointDispatcher(object):
   @classmethod
   def iter_updates(cls, filename):
     try:
-      with open(filename) as fp:
+      with open(filename, 'rb') as fp:
         rr = ThriftRecordReader(fp, RunnerCkpt)
         for update in rr:
           yield update
