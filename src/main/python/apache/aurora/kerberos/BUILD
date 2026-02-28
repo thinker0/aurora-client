@@ -20,9 +20,8 @@ python_sources(
   ],
 )
 
-python_sources(
+target(
   name = '_kerberos',
-  sources = ['*.py', '**/*.py'],
   dependencies = [
     ':kerberos_auth',
     'src/main/python/apache/aurora/admin:_admin',
@@ -49,7 +48,7 @@ pex_binary(
   layout = 'zipapp',
 )
 
-python_sources(
+target(
   name = 'kerberos',
   dependencies = [
     ':_kerberos',

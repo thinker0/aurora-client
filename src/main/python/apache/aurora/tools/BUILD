@@ -64,7 +64,7 @@ pex_binary(
   dependencies = [':_thermos_observer'],
 )
 
-python_sources(
+target(
   name = 'tools',
   dependencies = [
     ':_thermos',

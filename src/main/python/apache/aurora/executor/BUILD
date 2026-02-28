@@ -54,7 +54,7 @@ pex_binary(
   tags=['mesos-native']
 )
 
-python_sources(
+target(
   name = 'executor',
   dependencies = [
     ':_executor',

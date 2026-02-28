@@ -44,7 +44,7 @@ pex_binary(
   ],
 )
 
-python_sources(
+target(
   name = 'client',
   dependencies = [
     ':_client',

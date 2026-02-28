@@ -23,8 +23,8 @@ if Compatibility.PY3:
   import urllib.request as urllib_request
   from urllib.error import HTTPError
 else:
-  import urllib2 as urllib_request
-  from urllib2 import HTTPError
+  import urllib2 as urllib_request  # pants: no-infer-dep
+  from urllib2 import HTTPError  # pants: no-infer-dep
 
 
 class OpenedURL(object):

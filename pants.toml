@@ -44,7 +44,13 @@ root_patterns = [
 
 [python]
 interpreter_constraints = ["CPython==3.9.*"]
-resolves = { python-default = "3rdparty/python/lock.txt", python-admin = "3rdparty/python/lock-admin.txt" }
+resolves = { python-default = "3rdparty/python/lock.txt" }
+
+[test]
+extra_env_vars = ["PYTHONPATH=src/test/python:src/main/python"]
+
+[environments-preview.names]
+local = "build-support:local_env"
 
 [python-bootstrap]
 search_path = [
@@ -64,6 +70,20 @@ indexes = []
 
 [python-infer]
 imports = true
+use_rust_parser = false
+ignored_unowned_imports = [
+  "gen.apache.aurora.api",
+  "gen.twitter.thrift.endpoint",
+  "pytest",
+  "_dummy_thread",
+  "httplib",
+  "urllib2",
+  "kazoo",
+  "mesos",
+  "rediscluster",
+  "apache.aurora.executor.resources",
+  "zookeeper",
+]
 
 
 # [test.pytest]

@@ -20,30 +20,23 @@ python_sources(
     'process_provider.py',
     'sitecustomize.py',
     'StringIO.py',
-    'twitter/__init__.py',
-    'twitter/common/__init__.py',
-    'twitter/common/collections/__init__.py',
-    'twitter/common/collections/orderedset.py',
-    'twitter/common/lang/__init__.py',
-    'twitter/common/recordio/__init__.py',
-    'twitter/common/zookeeper/kazoo_client.py',
     'urlparse.py',
   ],
 )
 
 # Fat source target for PEX packaging (Pants 2 migration shortcut)
-python_sources(
+target(
   name = 'all_src',
-  sources = [
-    'apache/**/*.py',
-    'twitter/**/*.py',
-    'process_handle_ps.py',
-    '!twitter/common/**',
-    '!apache/thermos/**',
-  ],
-  resolve = 'python-default',
   dependencies = [
-    'src/main/python/twitter/common:common_sources',
+    'src/main/python:process_handle_ps_shim',
+    'src/main/python/apache/aurora/admin:_admin',
+    'src/main/python/apache/aurora/client:client',
+    'src/main/python/apache/aurora/client/cli:auroraversion',
+    'src/main/python/apache/aurora/common:common',
+    'src/main/python/apache/aurora/config:config',
+    'src/main/python/apache/aurora/executor:executor',
+    'src/main/python/apache/aurora/kerberos:kerberos',
+    'src/main/python/apache/aurora/tools:tools',
     'src/main/python/apache/thermos/cli',
     'src/main/python/apache/thermos/common',
     'src/main/python/apache/thermos/config',
@@ -51,29 +44,33 @@ python_sources(
     'src/main/python/apache/thermos/monitoring',
     'src/main/python/apache/thermos/observer',
     'src/main/python/apache/thermos/runner',
+    'src/main/python/twitter:twitter_pkg',
+    'src/main/python/twitter/common:common_sources',
+    'src/main/python/twitter/common/zookeeper',
   ],
 )
 
 # Reduced source set for admin/client tools (excludes executor to avoid pesos/futures conflict)
-python_sources(
+target(
   name = 'admin_src',
-  sources = [
-    'apache/**/*.py',
-    'twitter/**/*.py',
-    '!apache/aurora/executor/**',
-    '!apache/aurora/executor/**/*.py',
-    '!twitter/common/**',
-    '!apache/thermos/**',
-  ],
-  resolve = 'python-default',
   dependencies = [
-    'src/main/python/twitter/common:common_sources',
+    'src/main/python:process_handle_ps_shim',
+    'src/main/python/apache/aurora/admin:_admin',
+    'src/main/python/apache/aurora/client:client',
+    'src/main/python/apache/aurora/client/cli:auroraversion',
+    'src/main/python/apache/aurora/common:common',
+    'src/main/python/apache/aurora/config:config',
+    'src/main/python/apache/aurora/kerberos:kerberos',
+    'src/main/python/apache/aurora/tools:tools',
     'src/main/python/apache/thermos/cli',
     'src/main/python/apache/thermos/common',
     'src/main/python/apache/thermos/config',
     'src/main/python/apache/thermos/core',
     'src/main/python/apache/thermos/monitoring',
     'src/main/python/apache/thermos/observer',
+    'src/main/python/twitter:twitter_pkg',
+    'src/main/python/twitter/common:common_sources',
+    'src/main/python/twitter/common/zookeeper',
   ],
 )
 

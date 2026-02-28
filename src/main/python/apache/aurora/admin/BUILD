@@ -35,5 +35,4 @@ pex_binary(
   ],
   include_sources = True,
   layout = 'zipapp',
-  resolve = 'python-admin',
 )

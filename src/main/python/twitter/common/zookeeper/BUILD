@@ -3,7 +3,6 @@ python_sources(
   sources = ["**/*.py"],
   dependencies = [
     "src/main/python/twitter:twitter_pkg",
-    "src/main/python/twitter/common:common_pkg",
     "3rdparty/python#kazoo",
     "src/main/python/twitter/common:common_sources",
   ],
