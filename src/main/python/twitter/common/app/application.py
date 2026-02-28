@@ -284,7 +284,7 @@ class Application(object):
 
     if self.IGNORE_RC_FLAG not in argv and os.path.exists(rc_filename):
       command = self._command or self.NO_COMMAND
-      rc_config = ConfigParser.SafeConfigParser()
+      rc_config = ConfigParser.ConfigParser()
       rc_config.read(rc_filename)
 
       if rc_config.has_option(command, self.OPTIONS):
@@ -687,8 +687,8 @@ class Application(object):
   def quit(self, return_code):
     nondaemons = 0
     for thr in threading.enumerate():
-      self._debug_log('  Active thread%s: %s' % (' (daemon)' if thr.isDaemon() else '', thr))
-      if thr is not threading.current_thread() and not thr.isDaemon():
+      self._debug_log('  Active thread%s: %s' % (' (daemon)' if thr.daemon else '', thr))
+      if thr is not threading.current_thread() and not thr.daemon:
         nondaemons += 1
     if nondaemons:
       self._debug_log('More than one active non-daemon thread, your application may hang!')
