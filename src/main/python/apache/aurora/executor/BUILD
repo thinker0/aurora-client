@@ -17,6 +17,8 @@ python_sources(
   name = '_executor',
   sources = ['*.py', '**/*.py'],
   dependencies = [
+    'src/main/python/apache/aurora/executor/resources:thermos_runner',
+    'src/main/python/apache/aurora/executor/resources',
     '3rdparty/python#compactor',
     '3rdparty/python#pesos',
     '3rdparty/python#pex',
@@ -33,7 +35,6 @@ python_sources(
     'src/main/python/apache/thermos/common',
     'src/main/python/apache/thermos/config',
     'src/main/python/apache/thermos/core',
-    'src/main/python/apache/thermos/monitoring',
   ],
 )
 

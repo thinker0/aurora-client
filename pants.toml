@@ -63,7 +63,7 @@ thrift_search_paths = [
 indexes = []
 
 [python-infer]
-imports = false
+imports = true
 
 
 # [test.pytest]

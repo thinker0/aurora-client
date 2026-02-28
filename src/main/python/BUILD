@@ -38,8 +38,12 @@ python_sources(
     'apache/**/*.py',
     'twitter/**/*.py',
     'process_handle_ps.py',
+    '!twitter/common/**',
   ],
   resolve = 'python-default',
+  dependencies = [
+    'src/main/python/twitter/common:common_sources',
+  ],
 )
 
 # Reduced source set for admin/client tools (excludes executor to avoid pesos/futures conflict)
@@ -50,8 +54,12 @@ python_sources(
     'twitter/**/*.py',
     '!apache/aurora/executor/**',
     '!apache/aurora/executor/**/*.py',
+    '!twitter/common/**',
   ],
   resolve = 'python-default',
+  dependencies = [
+    'src/main/python/twitter/common:common_sources',
+  ],
 )
 
 python_distribution(
