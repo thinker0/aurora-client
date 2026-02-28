@@ -664,7 +664,7 @@ class LogDestinationResolver(object):
 
     # On no destination write logs to /dev/null
     if self._destination == LoggerDestination.NONE:
-      return StreamHandler(safe_open(os.devnull, 'w'))
+      return StreamHandler(safe_open(os.devnull, 'wb'))
 
     # Streamed logs to predefined outputs
     if self._destination == LoggerDestination.CONSOLE:
@@ -679,7 +679,7 @@ class LogDestinationResolver(object):
 
   def _get_file(self, name):
     if self._mode == LoggerMode.STANDARD:
-      return safe_open(self._get_log_path(name), mode='a')
+      return safe_open(self._get_log_path(name), mode='ab')
     if self._mode == LoggerMode.ROTATE:
       log_size = int(self._rotate_log_size.as_(Data.BYTES))
       return RotatingFileHandler(self._get_log_path(name),
@@ -704,7 +704,7 @@ class RotatingFileHandler(object):
   File handler that implements max size/rotation.
   """
 
-  def __init__(self, filename, max_bytes, max_backups, mode='w'):
+  def __init__(self, filename, max_bytes, max_backups, mode='wb'):
     """
       required:
         filename    = The file name.
@@ -768,7 +768,7 @@ class RotatingFileHandler(object):
         self.swap_files(src, tgt)
 
     self.swap_files(self.filename, self.make_indexed_filename(1))
-    self.file = safe_open(self.filename, mode='w')
+    self.file = safe_open(self.filename, mode='wb')
 
 
 class StreamHandler(object):

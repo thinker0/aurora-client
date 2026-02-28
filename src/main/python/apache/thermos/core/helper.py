@@ -296,7 +296,7 @@ class TaskRunnerHelper(object):
       Acquire a locked checkpoint stream.
     """
     safe_mkdir(os.path.dirname(filename))
-    fp = lock_file(filename, "a+")
+    fp = lock_file(filename, "ab+")
     if fp in (None, False):
       if force:
         log.info('Found existing runner, forcing leadership forfeit.')
@@ -306,7 +306,7 @@ class TaskRunnerHelper(object):
           # TODO(wickman)  Blocking may not be the best idea here.  Perhaps block up to
           # a maximum timeout.  But blocking is necessary because os.kill does not immediately
           # release the lock if we're in force mode.
-          fp = lock_file(filename, "a+", blocking=True)
+          fp = lock_file(filename, "ab+", blocking=True)
       else:
         log.error('Found existing runner, cannot take control.')
     if fp in (None, False):

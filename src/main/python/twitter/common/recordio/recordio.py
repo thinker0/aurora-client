@@ -236,7 +236,7 @@ class RecordIO(object):
         return False
       try:
         fp = None
-        with open(filename, "a+") as fp:
+        with open(filename, "ab+") as fp:
           return RecordIO.Writer.do_write(fp, record, codec)
       except (IOError, OSError) as e:
         if fp:

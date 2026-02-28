@@ -65,9 +65,9 @@ def daemonize():
   daemon_fork()
   os.setsid()
   daemon_fork()
-  sys.stdin, sys.stdout, sys.stderr = (open('/dev/null', 'r'),  # noqa
-                                       open('/dev/null', 'a+'),  # noqa
-                                       open('/dev/null', 'a+', 0))  # noqa
+  sys.stdin, sys.stdout, sys.stderr = (open(os.devnull, 'r'),  # noqa
+                                       open(os.devnull, 'a'),  # noqa
+                                       open(os.devnull, 'a'))  # noqa
 
 
 def really_run(

@@ -11,8 +11,8 @@
 # limitations under the License.
 #
 FROM --platform=linux/amd64 rockylinux:8
-ENV LANG en_US.UTF-8
-ENV LC_ALL en_US.UTF-8
+ENV LANG=en_US.UTF-8
+ENV LC_ALL=en_US.UTF-8
 RUN yum update -y && \
     yum install -y \
     epel-release && \

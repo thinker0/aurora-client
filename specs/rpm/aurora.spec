@@ -90,8 +90,13 @@ BuildRequires: patch
 %if 0%{?rhel} && 0%{?rhel} < 9
 BuildRequires: python2-devel
 %endif
+%if 0%{?rhel} == 8
+BuildRequires: python39
+BuildRequires: python39-devel
+%else
 BuildRequires: python3
 BuildRequires: python3-devel
+%endif
 BuildRequires: subversion-devel
 BuildRequires: tar
 BuildRequires: unzip
@@ -101,6 +106,7 @@ BuildRequires: libffi-devel
 
 Requires:      java-%{JAVA_VERSION}-headless
 Requires:      mesos >= %{MESOS_VERSION}
+Requires:      zookeeper
 
 
 %description
@@ -114,7 +120,11 @@ Summary: A client for scheduling services against the Aurora scheduler
 Group: Development/Tools
 
 Requires: krb5-libs
+%if 0%{?rhel} == 8
+Requires: python39
+%else
 Requires: python3
+%endif
 
 %description -n aurora-tools
 A set of command-line applications used for interacting with and administering Aurora
@@ -127,7 +137,11 @@ Group: Applications/System
 
 Requires: mesos >= %{MESOS_VERSION}
 Requires: cyrus-sasl
+%if 0%{?rhel} == 8
+Requires: python39
+%else
 Requires: python3
+%endif
 
 %description -n aurora-executor
 Thermos a simple process management framework used for orchestrating dependent processes
