@@ -14,7 +14,10 @@
 # limitations under the License.
 # ==================================================================================================
 
-from Queue import Queue, Empty
+try:
+  from queue import Queue, Empty
+except ImportError:
+  from Queue import Queue, Empty
 from threading import Thread
 
 from twitter.common.exceptions import ExceptionalThread
@@ -51,12 +54,13 @@ def deadline(closure, timeout=Amount(150, Time.MILLISECONDS), daemon=False, prop
       super(AnonymousThread, self).__init__()
       self.daemon = bool(daemon)
     def run(self):
+      result = None
       try:
         result = closure()
-      except Exception as result:
+      except Exception as e:
         if not propagate:
-          # conform to standard behaviour of an exception being raised inside a Thread
-          raise result
+          raise e
+        result = e
       q.put(result)
   AnonymousThread().start()
   try:

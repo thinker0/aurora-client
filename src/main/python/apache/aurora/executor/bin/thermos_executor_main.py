@@ -24,6 +24,11 @@ from __future__ import print_function
 import os
 import sys
 import traceback
+import uuid as _uuid_module
+
+# Python 3 removed uuid.UUID.get_bytes() - patch it back for pesos compatibility
+if not hasattr(_uuid_module.UUID, 'get_bytes'):
+  _uuid_module.UUID.get_bytes = lambda self: self.bytes
 
 from twitter.common import app, log
 from twitter.common.exceptions import ExceptionalThread
@@ -329,7 +334,7 @@ def proxy_main():
     driver_thread = ExecutorDriverThread(driver)
     driver_thread.start()
     try:
-      while driver_thread.isAlive():
+      while driver_thread.is_alive():
         driver_thread.join(5)
     except (KeyboardInterrupt, SystemExit):
       driver.stop()
