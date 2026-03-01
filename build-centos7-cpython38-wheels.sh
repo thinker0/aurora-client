@@ -15,8 +15,11 @@ fi
 
 mkdir -p "$WHEEL_OUT"
 
-docker build -f "$ROOT/builder/rpm/centos-7/Dockerfile.cpython" -t aurora-centos7-cpython38 "$ROOT"
-docker run --rm \
+docker build --platform=linux/amd64 --load \
+  -f "$ROOT/builder/rpm/centos-7/Dockerfile.cpython" \
+  -t aurora-centos7-cpython38 \
+  "$ROOT"
+docker run --rm --platform=linux/amd64 \
   -v "$TARBALL:/src.tar.gz" \
   -v "$WHEEL_OUT:/wheels" \
   aurora-centos7-cpython38 \

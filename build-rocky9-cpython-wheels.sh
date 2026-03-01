@@ -15,8 +15,11 @@ fi
 
 mkdir -p "$WHEEL_OUT"
 
-docker build -f "$ROOT/builder/rpm/rocky-9/Dockerfile.cpython" -t aurora-rocky9-cpython "$ROOT"
-docker run --rm \
+docker build --platform=linux/amd64 --load \
+  -f "$ROOT/builder/rpm/rocky-9/Dockerfile.cpython" \
+  -t aurora-rocky9-cpython \
+  "$ROOT"
+docker run --rm --platform=linux/amd64 \
   -v "$TARBALL:/src.tar.gz" \
   -v "$WHEEL_OUT:/wheels" \
   aurora-rocky9-cpython \
