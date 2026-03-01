@@ -68,8 +68,6 @@ thrift_search_paths = [
 
 [python-repos]
 indexes = []
-find_links = ["file://${AURORA_WHEELS_DIR}"]
-path_mappings = ["AURORA_WHEELS_DIR|/Users/thinker0/heron-release/aurora/3rdparty"]
 
 [python-infer]
 imports = true

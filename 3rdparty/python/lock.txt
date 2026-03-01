@@ -57,7 +57,7 @@
             {
               "algorithm": "sha256",
               "hash": "da550ac6b7fd75befadc864547460517b9fb4cbd69f297bf77f9f62f5d261c46",
-              "url": "file:///Users/thinker0/Downloads/heron-release/aurora/3rdparty/bottle-0.11.6-py2.py3-none-any.whl"
+              "url": "file://${AURORA_WHEELS_DIR}/bottle-0.11.6-py2.py3-none-any.whl"
             }
           ],
           "project_name": "bottle",
@@ -70,7 +70,7 @@
             {
               "algorithm": "sha256",
               "hash": "d62a0163eb4c2344ac042ab2bdf75399a71a2d8c7d47eac2e2ee91b9d6339569",
-              "url": "file:///Users/thinker0/Downloads/heron-release/aurora/3rdparty/certifi-2021.10.8-py2.py3-none-any.whl"
+              "url": "file://${AURORA_WHEELS_DIR}/certifi-2021.10.8-py2.py3-none-any.whl"
             }
           ],
           "project_name": "certifi",
@@ -83,7 +83,7 @@
             {
               "algorithm": "sha256",
               "hash": "fc323ffcaeaed0e0a02bf4d117757b98aed530d9ed4531e3e15460124c106691",
-              "url": "file:///Users/thinker0/Downloads/heron-release/aurora/3rdparty/chardet-3.0.4-py2.py3-none-any.whl"
+              "url": "file://${AURORA_WHEELS_DIR}/chardet-3.0.4-py2.py3-none-any.whl"
             }
           ],
           "project_name": "chardet",
@@ -96,7 +96,7 @@
             {
               "algorithm": "sha256",
               "hash": "42440ed100b584f9a89c8566a831049f09bc1f07611b08e617e73bbc3c754b36",
-              "url": "file:///Users/thinker0/Downloads/heron-release/aurora/3rdparty/CherryPy-8.0.0-py3-none-any.whl"
+              "url": "file://${AURORA_WHEELS_DIR}/CherryPy-8.0.0-py3-none-any.whl"
             }
           ],
           "project_name": "cherrypy",
@@ -112,7 +112,7 @@
             {
               "algorithm": "sha256",
               "hash": "d0cecc9782d1e26e04b9863910bd40cc1a66fafc93c1cfbec5e6b571a76b87a4",
-              "url": "file:///Users/thinker0/Downloads/heron-release/aurora/3rdparty/compactor-0.2.2-py2.py3-none-any.whl"
+              "url": "file://${AURORA_WHEELS_DIR}/compactor-0.2.2-py2.py3-none-any.whl"
             }
           ],
           "project_name": "compactor",
@@ -129,7 +129,7 @@
             {
               "algorithm": "sha256",
               "hash": "09a5d20bc361163e6432a874edd3179676e935eb81b925eccef48d409a8a45e8",
-              "url": "file:///Users/thinker0/Downloads/heron-release/aurora/3rdparty/expiringdict-1.2.2-py3-none-any.whl"
+              "url": "file://${AURORA_WHEELS_DIR}/expiringdict-1.2.2-py3-none-any.whl"
             }
           ],
           "project_name": "expiringdict",
@@ -149,7 +149,7 @@
             {
               "algorithm": "sha256",
               "hash": "9fd22b354a4c4755ad8c7d161d93f5026aca4cfe999bd2e53168f14765c02cd6",
-              "url": "file:///Users/thinker0/Downloads/heron-release/aurora/3rdparty/futures-2.2.0-py2.py3-none-any.whl"
+              "url": "file://${AURORA_WHEELS_DIR}/futures-2.2.0-py2.py3-none-any.whl"
             }
           ],
           "project_name": "futures",
@@ -164,12 +164,12 @@
             {
               "algorithm": "sha256",
               "hash": "14c0501578f5f2b7dca472110d4ec5e0bcc1207e67dfc479cb1f492a37bfbf4c",
-              "url": "file:///Users/thinker0/Downloads/heron-release/aurora/3rdparty/httpretty-0.8.14-py3-none-any.whl"
+              "url": "file://${AURORA_WHEELS_DIR}/httpretty-0.8.14-py3-none-any.whl"
             },
             {
               "algorithm": "sha256",
               "hash": "83c176bbac9d68a45a5cca54f2d5be7e6b16a063adf6f334e7fd0eee272e976e",
-              "url": "file:///Users/thinker0/Downloads/heron-release/aurora/3rdparty/httpretty-0.8.14.tar.gz"
+              "url": "file://${AURORA_WHEELS_DIR}/httpretty-0.8.14.tar.gz"
             }
           ],
           "project_name": "httpretty",
@@ -182,7 +182,7 @@
             {
               "algorithm": "sha256",
               "hash": "8c7309c718f94b3a625cb648ace320157ad16ff131ae0af362c9f21b80ef6ec4",
-              "url": "file:///Users/thinker0/Downloads/heron-release/aurora/3rdparty/idna-2.6-py2.py3-none-any.whl"
+              "url": "file://${AURORA_WHEELS_DIR}/idna-2.6-py2.py3-none-any.whl"
             }
           ],
           "project_name": "idna",
@@ -195,7 +195,7 @@
             {
               "algorithm": "sha256",
               "hash": "cb99b58dcf853f791bec28aa016c121663b79ee6125c892297d773d7fd4dcecf",
-              "url": "file:///Users/thinker0/Downloads/heron-release/aurora/3rdparty/jmespath-0.7.1-py2.py3-none-any.whl"
+              "url": "file://${AURORA_WHEELS_DIR}/jmespath-0.7.1-py2.py3-none-any.whl"
             }
           ],
           "project_name": "jmespath",
@@ -208,7 +208,7 @@
             {
               "algorithm": "sha256",
               "hash": "de2d69168de432ff66b457a26c727a5bf7ff53af5806653fd1df7f04b6a5483c",
-              "url": "file:///Users/thinker0/Downloads/heron-release/aurora/3rdparty/kazoo-2.10.0-py2.py3-none-any.whl"
+              "url": "file://${AURORA_WHEELS_DIR}/kazoo-2.10.0-py2.py3-none-any.whl"
             }
           ],
           "project_name": "kazoo",
@@ -243,7 +243,7 @@
             {
               "algorithm": "sha256",
               "hash": "b7fcbe4b5228052c8b2900a39a7d5976589c8cd68141471e56bc28280db611d8",
-              "url": "file:///Users/thinker0/Downloads/heron-release/aurora/3rdparty/mako-1.0.4-py3-none-any.whl"
+              "url": "file://${AURORA_WHEELS_DIR}/mako-1.0.4-py3-none-any.whl"
             }
           ],
           "project_name": "mako",
@@ -258,12 +258,12 @@
             {
               "algorithm": "sha256",
               "hash": "7a68b554d356a91cce1236aa7682dc01df0edba8d043fd1ce607c49dd3c1edcf",
-              "url": "file:///Users/thinker0/Downloads/heron-release/aurora/3rdparty/MarkupSafe-2.1.5-cp39-cp39-macosx_10_9_universal2.whl"
+              "url": "file://${AURORA_WHEELS_DIR}/MarkupSafe-2.1.5-cp39-cp39-macosx_10_9_universal2.whl"
             },
             {
               "algorithm": "sha256",
               "hash": "17b950fccb810b3293638215058e432159d2b71005c74371d784862b7e4683f3",
-              "url": "file:///Users/thinker0/Downloads/heron-release/aurora/3rdparty/MarkupSafe-2.1.5-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl"
+              "url": "file://${AURORA_WHEELS_DIR}/MarkupSafe-2.1.5-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl"
             }
           ],
           "project_name": "markupsafe",
@@ -276,12 +276,12 @@
             {
               "algorithm": "sha256",
               "hash": "3da961992c9cd3a8135fd0e189619d1759a1468eb39b7a9dc8c371abc07bbdf0",
-              "url": "file:///Users/thinker0/Downloads/heron-release/aurora/3rdparty/mesos.interface-0.21.1-py3-none-any.whl"
+              "url": "file://${AURORA_WHEELS_DIR}/mesos.interface-0.21.1-py3-none-any.whl"
             },
             {
               "algorithm": "sha256",
               "hash": "dffc698cb711a73268b6afc46d03ecb3a099237af83549155ec6c05274ee5459",
-              "url": "file:///Users/thinker0/Downloads/heron-release/aurora/3rdparty/mesos_interface-0.21.1-py3-none-any.whl"
+              "url": "file://${AURORA_WHEELS_DIR}/mesos_interface-0.21.1-py3-none-any.whl"
             }
           ],
           "project_name": "mesos-interface",
@@ -294,7 +294,7 @@
             {
               "algorithm": "sha256",
               "hash": "0e65940e555f8a60dc07c7ec23079091bcebce9b591dffe8a95810c8a6318bbe",
-              "url": "file:///Users/thinker0/Downloads/heron-release/aurora/3rdparty/pesos-0.2.2-py2.py3-none-any.whl"
+              "url": "file://${AURORA_WHEELS_DIR}/pesos-0.2.2-py2.py3-none-any.whl"
             }
           ],
           "project_name": "pesos",
@@ -309,7 +309,7 @@
             {
               "algorithm": "sha256",
               "hash": "82c9e9d1fa2f4fcb4f4cbec06daf8b524c30c55b04774ad5c64faacbb70e4994",
-              "url": "file:///Users/thinker0/Downloads/heron-release/aurora/3rdparty/pex-1.6.12-py2.py3-none-any.whl"
+              "url": "file://${AURORA_WHEELS_DIR}/pex-1.6.12-py2.py3-none-any.whl"
             }
           ],
           "project_name": "pex",
@@ -326,7 +326,7 @@
             {
               "algorithm": "sha256",
               "hash": "4d2e665410b0a278d2eb2c0a529ca2366bb325eb2ae34e189a826b71fb1b28cd",
-              "url": "file:///Users/thinker0/Downloads/heron-release/aurora/3rdparty/protobuf-3.5.1-py2.py3-none-any.whl"
+              "url": "file://${AURORA_WHEELS_DIR}/protobuf-3.5.1-py2.py3-none-any.whl"
             }
           ],
           "project_name": "protobuf",
@@ -342,17 +342,17 @@
             {
               "algorithm": "sha256",
               "hash": "aee678c8720623dc456fa20659af736241f575d79429a0e5e9cf88ae0605cc81",
-              "url": "file:///Users/thinker0/Downloads/heron-release/aurora/3rdparty/psutil-5.9.8-cp36-abi3-macosx_10_9_x86_64.whl"
+              "url": "file://${AURORA_WHEELS_DIR}/psutil-5.9.8-cp36-abi3-macosx_10_9_x86_64.whl"
             },
             {
               "algorithm": "sha256",
               "hash": "d06016f7f8625a1825ba3732081d77c94589dca78b7a3fc072194851e88461a4",
-              "url": "file:///Users/thinker0/Downloads/heron-release/aurora/3rdparty/psutil-5.9.8-cp36-abi3-manylinux_2_12_x86_64.manylinux2010_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl"
+              "url": "file://${AURORA_WHEELS_DIR}/psutil-5.9.8-cp36-abi3-manylinux_2_12_x86_64.manylinux2010_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl"
             },
             {
               "algorithm": "sha256",
               "hash": "d16bbddf0693323b8c6123dd804100241da461e41d6e332fb0ba6058f630f8c8",
-              "url": "file:///Users/thinker0/Downloads/heron-release/aurora/3rdparty/psutil-5.9.8-cp38-abi3-macosx_11_0_arm64.whl"
+              "url": "file://${AURORA_WHEELS_DIR}/psutil-5.9.8-cp38-abi3-macosx_11_0_arm64.whl"
             }
           ],
           "project_name": "psutil",
@@ -371,17 +371,17 @@
             {
               "algorithm": "sha256",
               "hash": "d400989e85eba88293557eba426c866af581ec601bd9bdad5da96c3cb4a29dfe",
-              "url": "file:///Users/thinker0/Downloads/heron-release/aurora/3rdparty/pykerberos-1.2.1-cp39-cp39-linux_x86_64.whl"
+              "url": "file://${AURORA_WHEELS_DIR}/pykerberos-1.2.1-cp39-cp39-linux_x86_64.whl"
             },
             {
               "algorithm": "sha256",
               "hash": "30d43c40b59321755f6316a34c990dcef9a42de18983c4a291ca4563dbe7a491",
-              "url": "file:///Users/thinker0/Downloads/heron-release/aurora/3rdparty/pykerberos-1.2.1-cp39-cp39-macosx_10_9_x86_64.whl"
+              "url": "file://${AURORA_WHEELS_DIR}/pykerberos-1.2.1-cp39-cp39-macosx_10_9_x86_64.whl"
             },
             {
               "algorithm": "sha256",
               "hash": "e2a78ac89d9d7e30d2ceaf5e2137136259d5b87b36941c0cd1a4c9439961cfa0",
-              "url": "file:///Users/thinker0/Downloads/heron-release/aurora/3rdparty/pykerberos-1.2.1-cp39-cp39-macosx_26_0_arm64.whl"
+              "url": "file://${AURORA_WHEELS_DIR}/pykerberos-1.2.1-cp39-cp39-macosx_26_0_arm64.whl"
             }
           ],
           "project_name": "pykerberos",
@@ -394,7 +394,7 @@
             {
               "algorithm": "sha256",
               "hash": "827b251245d1ed7a82790718c455d920a4092f9cd04a9f810f41a80c6b65e56b",
-              "url": "file:///Users/thinker0/Downloads/heron-release/aurora/3rdparty/pystachio-0.8.5-py2.py3-none-any.whl"
+              "url": "file://${AURORA_WHEELS_DIR}/pystachio-0.8.5-py2.py3-none-any.whl"
             }
           ],
           "project_name": "pystachio",
@@ -407,7 +407,7 @@
             {
               "algorithm": "sha256",
               "hash": "432b788c4530cfe16d8d943a09d40ca6c16149727e4afe8c2c9d5580c59d9f24",
-              "url": "file:///Users/thinker0/Downloads/heron-release/aurora/3rdparty/redis-3.5.3-py2.py3-none-any.whl"
+              "url": "file://${AURORA_WHEELS_DIR}/redis-3.5.3-py2.py3-none-any.whl"
             }
           ],
           "project_name": "redis",
@@ -422,7 +422,7 @@
             {
               "algorithm": "sha256",
               "hash": "38f08850fde469ffd76bced7309721114acc487e52b76f374a0502c34c69b4ec",
-              "url": "file:///Users/thinker0/Downloads/heron-release/aurora/3rdparty/redis_py_cluster-2.1.3-py2.py3-none-any.whl"
+              "url": "file://${AURORA_WHEELS_DIR}/redis_py_cluster-2.1.3-py2.py3-none-any.whl"
             }
           ],
           "project_name": "redis-py-cluster",
@@ -438,12 +438,12 @@
             {
               "algorithm": "sha256",
               "hash": "69ca30a22697d576207a364ace8ad9df0511b760c90ece57afcad11d842c6242",
-              "url": "file:///Users/thinker0/Downloads/heron-release/aurora/3rdparty/redis3-3.5.2.3-py2.py3-none-any.whl"
+              "url": "file://${AURORA_WHEELS_DIR}/redis3-3.5.2.3-py2.py3-none-any.whl"
             },
             {
               "algorithm": "sha256",
               "hash": "4d3b34f79217beaaa715b6d89d3708e0c6ebf8f186937b99dcc05e269ec06825",
-              "url": "file:///Users/thinker0/Downloads/heron-release/aurora/3rdparty/redis3-3.5.2.3.tar.gz"
+              "url": "file://${AURORA_WHEELS_DIR}/redis3-3.5.2.3.tar.gz"
             }
           ],
           "project_name": "redis3",
@@ -458,7 +458,7 @@
             {
               "algorithm": "sha256",
               "hash": "6a1b267aa90cac58ac3a765d067950e7dbbf75b1da07e895d1f594193a40a38b",
-              "url": "file:///Users/thinker0/Downloads/heron-release/aurora/3rdparty/requests-2.18.4-py2.py3-none-any.whl"
+              "url": "file://${AURORA_WHEELS_DIR}/requests-2.18.4-py2.py3-none-any.whl"
             }
           ],
           "project_name": "requests",
@@ -481,7 +481,7 @@
             {
               "algorithm": "sha256",
               "hash": "6c1dc3c7c0774ac104487112fc564525a838aa507982b7c4785e41e5cb6893c9",
-              "url": "file:///Users/thinker0/Downloads/heron-release/aurora/3rdparty/requests_kerberos-0.11.0-py2.py3-none-any.whl"
+              "url": "file://${AURORA_WHEELS_DIR}/requests_kerberos-0.11.0-py2.py3-none-any.whl"
             }
           ],
           "project_name": "requests-kerberos",
@@ -498,7 +498,7 @@
             {
               "algorithm": "sha256",
               "hash": "23edd6f7926aa13b88bf79cb467632ba2dd5a253034e9f41563f60ed305620c7",
-              "url": "file:///Users/thinker0/Downloads/heron-release/aurora/3rdparty/requests_mock-1.3.0-py2.py3-none-any.whl"
+              "url": "file://${AURORA_WHEELS_DIR}/requests_mock-1.3.0-py2.py3-none-any.whl"
             }
           ],
           "project_name": "requests-mock",
@@ -515,7 +515,7 @@
             {
               "algorithm": "sha256",
               "hash": "23aaf86b85ca52ceb801d32703f12d77517b2556af839621c641fca11287952b",
-              "url": "file:///Users/thinker0/Downloads/heron-release/aurora/3rdparty/setuptools-67.7.2-py3-none-any.whl"
+              "url": "file://${AURORA_WHEELS_DIR}/setuptools-67.7.2-py3-none-any.whl"
             }
           ],
           "project_name": "setuptools",
@@ -574,7 +574,7 @@
             {
               "algorithm": "sha256",
               "hash": "4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274",
-              "url": "file:///Users/thinker0/Downloads/heron-release/aurora/3rdparty/six-1.17.0-py2.py3-none-any.whl"
+              "url": "file://${AURORA_WHEELS_DIR}/six-1.17.0-py2.py3-none-any.whl"
             }
           ],
           "project_name": "six",
@@ -587,22 +587,22 @@
             {
               "algorithm": "sha256",
               "hash": "e81ff496176ca39fa796a96250e11edc3fca4965b3d8e2d9dae7d6c01e6e67a9",
-              "url": "file:///Users/thinker0/Downloads/heron-release/aurora/3rdparty/thrift-0.22.0-cp39-cp39-linux_x86_64.whl"
+              "url": "file://${AURORA_WHEELS_DIR}/thrift-0.22.0-cp39-cp39-linux_x86_64.whl"
             },
             {
               "algorithm": "sha256",
               "hash": "7d8c89b4deeee9e0bda83498be939e3983748ced6430bbf1e180c91d2ec56e25",
-              "url": "file:///Users/thinker0/Downloads/heron-release/aurora/3rdparty/thrift-0.22.0-cp39-cp39-macosx_10_9_universal2.whl"
+              "url": "file://${AURORA_WHEELS_DIR}/thrift-0.22.0-cp39-cp39-macosx_10_9_universal2.whl"
             },
             {
               "algorithm": "sha256",
               "hash": "4b4cbf38bf6739ba63eb28ab202d7f2908741511a82b7f34b2e2faf3f81a00c0",
-              "url": "file:///Users/thinker0/Downloads/heron-release/aurora/3rdparty/thrift-0.22.0-cp39-cp39-macosx_26_0_arm64.whl"
+              "url": "file://${AURORA_WHEELS_DIR}/thrift-0.22.0-cp39-cp39-macosx_26_0_arm64.whl"
             },
             {
               "algorithm": "sha256",
               "hash": "42e8276afbd5f54fe1d364858b6877bc5e5a4a5ed69f6a005b94ca4918fe1466",
-              "url": "file:///Users/thinker0/Downloads/heron-release/aurora/3rdparty/thrift-0.22.0.tar.gz"
+              "url": "file://${AURORA_WHEELS_DIR}/thrift-0.22.0.tar.gz"
             }
           ],
           "project_name": "thrift",
@@ -620,17 +620,17 @@
             {
               "algorithm": "sha256",
               "hash": "41d1748a4e0864a22b99d6a2db91cbccb4a5f74871875ce636914d6f21a759f2",
-              "url": "file:///Users/thinker0/Downloads/heron-release/aurora/3rdparty/tornado-4.1-cp39-cp39-linux_x86_64.whl"
+              "url": "file://${AURORA_WHEELS_DIR}/tornado-4.1-cp39-cp39-linux_x86_64.whl"
             },
             {
               "algorithm": "sha256",
               "hash": "04ae9fdbf9ee0666cd276441039629860ac16754ed404da05a4521b5a3bfb017",
-              "url": "file:///Users/thinker0/Downloads/heron-release/aurora/3rdparty/tornado-4.1-cp39-cp39-macosx_26_0_arm64.whl"
+              "url": "file://${AURORA_WHEELS_DIR}/tornado-4.1-cp39-cp39-macosx_26_0_arm64.whl"
             },
             {
               "algorithm": "sha256",
               "hash": "99abd3aede45c93739346ee7384e710120121c3744da155d5cff1c0101702228",
-              "url": "file:///Users/thinker0/Downloads/heron-release/aurora/3rdparty/tornado-4.1.tar.gz"
+              "url": "file://${AURORA_WHEELS_DIR}/tornado-4.1.tar.gz"
             }
           ],
           "project_name": "tornado",
@@ -645,12 +645,12 @@
             {
               "algorithm": "sha256",
               "hash": "11448cfb3f27946f1d15522e6bf3d5d6496a10d54d619806c6f3bd82289ae75d",
-              "url": "file:///Users/thinker0/Downloads/heron-release/aurora/3rdparty/trollius-2.1.post2-py3-none-any.whl"
+              "url": "file://${AURORA_WHEELS_DIR}/trollius-2.1.post2-py3-none-any.whl"
             },
             {
               "algorithm": "sha256",
               "hash": "15b1345132bf6b0b44741dd9b12fadad0d4c1d60a31f22ff33e9fd17dbb2e3a5",
-              "url": "file:///Users/thinker0/Downloads/heron-release/aurora/3rdparty/trollius-2.1.post2.tar.gz"
+              "url": "file://${AURORA_WHEELS_DIR}/trollius-2.1.post2.tar.gz"
             }
           ],
           "project_name": "trollius",
@@ -665,12 +665,12 @@
             {
               "algorithm": "sha256",
               "hash": "6c2bee4ab52cae7dba1ef2bf7ce60f58ef17635bffbb623d6cd45075d8fe4142",
-              "url": "file:///Users/thinker0/Downloads/heron-release/aurora/3rdparty/twitter.common.lang-0.3.9-py3-none-any.whl"
+              "url": "file://${AURORA_WHEELS_DIR}/twitter.common.lang-0.3.9-py3-none-any.whl"
             },
             {
               "algorithm": "sha256",
               "hash": "aa15da4219777eef30d5eab1e7fcfaeaad944921f41cb42a47ece972c834ed33",
-              "url": "file:///Users/thinker0/Downloads/heron-release/aurora/3rdparty/twitter_common_lang-0.3.9-py3-none-any.whl"
+              "url": "file://${AURORA_WHEELS_DIR}/twitter_common_lang-0.3.9-py3-none-any.whl"
             }
           ],
           "project_name": "twitter-common-lang",
@@ -683,7 +683,7 @@
             {
               "algorithm": "sha256",
               "hash": "06330f386d6e4b195fbfc736b297f58c5a892e4440e54d294d7004e3a9bbea1b",
-              "url": "file:///Users/thinker0/Downloads/heron-release/aurora/3rdparty/urllib3-1.22-py2.py3-none-any.whl"
+              "url": "file://${AURORA_WHEELS_DIR}/urllib3-1.22-py2.py3-none-any.whl"
             }
           ],
           "project_name": "urllib3",
@@ -702,7 +702,9 @@
       "platform_tag": null
     }
   ],
-  "path_mappings": {},
+  "path_mappings": {
+    "AURORA_WHEELS_DIR": null
+  },
   "pex_version": "2.1.137",
   "pip_version": "23.1.2",
   "prefer_older_binary": false,
