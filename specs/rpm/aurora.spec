@@ -93,12 +93,14 @@ BuildRequires: python2-devel
 %if 0%{?rhel} == 8
 BuildRequires: python39
 BuildRequires: python39-devel
-%elif 0%{?rhel} == 7
+%else
+%if 0%{?rhel} == 7
 BuildRequires: rh-python38-python
 BuildRequires: rh-python38-python-devel
 %else
 BuildRequires: python3
 BuildRequires: python3-devel
+%endif
 %endif
 BuildRequires: subversion-devel
 BuildRequires: tar
@@ -125,10 +127,12 @@ Group: Development/Tools
 Requires: krb5-libs
 %if 0%{?rhel} == 8
 Requires: python39
-%elif 0%{?rhel} == 7
+%else
+%if 0%{?rhel} == 7
 Requires: rh-python38-python
 %else
 Requires: python3
+%endif
 %endif
 
 %description -n aurora-tools
@@ -144,10 +148,12 @@ Requires: mesos >= %{MESOS_VERSION}
 Requires: cyrus-sasl
 %if 0%{?rhel} == 8
 Requires: python39
-%elif 0%{?rhel} == 7
+%else
+%if 0%{?rhel} == 7
 Requires: rh-python38-python
 %else
 Requires: python3
+%endif
 %endif
 
 %description -n aurora-executor
