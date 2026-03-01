@@ -189,6 +189,8 @@ export PANTS_LOCAL_STORE_DIR="${PANTS_LOCAL_STORE_DIR:-.pants.d/lmdb_store}"
 export PANTS_PYTHON="${PANTS_PYTHON:-${PYTHON:-/usr/bin/python3.9}}"
 export PANTS_PYTHON_INTERPRETER_CONSTRAINTS="${PANTS_PYTHON_INTERPRETER_CONSTRAINTS:-[\"CPython==3.9.*\"]}"
 export PANTS_PYTHON_BOOTSTRAP_SEARCH_PATH="${PANTS_PYTHON_BOOTSTRAP_SEARCH_PATH:-[\"${PYTHON:-/usr/bin/python3.9}\"]}"
+export PANTS_PYTHON_REPOS_FIND_LINKS="${PANTS_PYTHON_REPOS_FIND_LINKS:-[\"file:///wheels\"]}"
+export PANTS_PYTHON_REPOS_PATH_MAPPINGS="${PANTS_PYTHON_REPOS_PATH_MAPPINGS:-[\"AURORA_WHEELS_DIR|/wheels\"]}"
 
 # Builds Aurora client PEX binaries.
 PYTHON=${PYTHON:-/usr/bin/python3.9} ./pants package src/main/python/apache/aurora/kerberos:kaurora
