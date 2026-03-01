@@ -262,8 +262,8 @@ def parse_and_validate_sla_drain_default(options):
   :rtype: a tuple of: default percentage (float), default duration (Amount) and timeout (Amount)
   """
   percentage = parse_sla_percentage(options.default_percentage)
-  duration = parse_time(options.default_duration).as_(Time.SECONDS)
-  timeout = parse_time(options.timeout).as_(Time.SECONDS)
+  duration = int(parse_time(options.default_duration).as_(Time.SECONDS))
+  timeout = int(parse_time(options.timeout).as_(Time.SECONDS))
 
   return percentage, duration, timeout
 
