@@ -101,7 +101,7 @@ class BasicAuth(Plugin):
       user_hash = hashlib.sha256(('%s:%s' % (user, password)).encode('utf-8')).hexdigest()
       if (user is not None and password is not None
           and self.get_user(user) == 'sha256:%s' % user_hash):
-        log.info('Success Authorization user=%s, hash=256:%s' % (user, user_hash))
+        log.debug('Success Authorization user=%s, hash=256:%s' % (user, user_hash))
         self.set_cache(user, user_hash)
         return callback(*args, **kwargs)
       else:
