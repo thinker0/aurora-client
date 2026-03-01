@@ -4,8 +4,21 @@ Python 2 based Aurora Schduler client.
 
 **This project is looking for a maintainer. please reach out via slack if you're interested in maintaining this project.**
 
+## Local setup (~/.pants.rc)
+
+Pants uses local wheel files instead of PyPI. Create `~/.pants.rc` with the path to your local wheels directory:
+
+```ini
+[python-repos]
+find_links = ["file:///path/to/your/wheels"]
+path_mappings = ["AURORA_WHEELS_DIR|/path/to/your/wheels"]
+```
+
+The wheels directory must contain the `.whl` files listed in `3rdparty/python/requirements.txt`.
+On macOS, this is typically the `3rdparty/python/wheels` symlink target.
+
 ## Running all tests:
-`$ ./pants test src/test/python/apache/aurora::`
+`$ pants test ::`
 
 If you want to force local wheels (to avoid pulling external `twitter.common` packages),
 use the wrapper:
