@@ -36,6 +36,9 @@ export PYTHON=/usr/bin/python3.9
 export PANTS_WORKDIR="${PANTS_WORKDIR:-.pants.d}"
 export PANTS_BOOTSTRAPDIR="${PANTS_BOOTSTRAPDIR:-.pants.d/bootstrap}"
 export PANTS_LOCAL_STORE_DIR="${PANTS_LOCAL_STORE_DIR:-.pants.d/lmdb_store}"
+export PANTS_PYTHON_REPOS_FIND_LINKS='["file:///wheels"]'
+export PANTS_PYTHON_REPOS_PATH_MAPPINGS='["AURORA_WHEELS_DIR|/wheels"]'
+export TAR_OPTIONS="--no-same-owner"
 
 make srpm
 yum-builddep -y ../../../dist/rpmbuild/SRPMS/*

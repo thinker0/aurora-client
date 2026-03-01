@@ -24,7 +24,7 @@ RUN yum update -y && \
     flex vim \
     gcc \
     gcc-c++ \
-    java-1.8.0-openjdk-devel \
+    java-11-openjdk-headless \
     krb5-devel \
     libcurl-devel \
     libffi-devel \

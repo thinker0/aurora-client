@@ -72,6 +72,13 @@ run_build() {
     popd
   }
   
+  local wheels_dir
+  wheels_dir=$(realpath "$(pwd)/3rdparty/python/wheels")
+  local wheels_mode="ro"
+  if [[ "$(basename "$BUILDER_DIR")" == "centos-7" ]]; then
+    wheels_mode="rw"
+  fi
+
   docker run \
     -e AURORA_VERSION=$AURORA_VERSION \
     -e GRADLE_VERSION=6.9.4 \
@@ -81,6 +88,7 @@ run_build() {
     -v "$(pwd)/$artifact_dir:/dist:rw" \
     -v "$(pwd)/specs:/specs:ro" \
     -v "$(pwd)/${BUILD_PACKAGE}:/src.tar.gz:ro" \
+    -v "${wheels_dir}:/wheels:${wheels_mode}" \
     -t "$IMAGE_NAME" /build.sh
     
   container=$(docker ps -l -q)
