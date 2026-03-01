@@ -146,6 +146,33 @@ def patch_twitter_common_zookeeper(wheel: Path) -> bool:
     return True
 
 
+def patch_jmespath_visitor(wheel: Path) -> bool:
+    path = "jmespath/visitor.py"
+    with zipfile.ZipFile(wheel, "r") as zf:
+        if path not in zf.namelist():
+            return False
+        data = {name: zf.read(name) for name in zf.namelist()}
+
+    text = data[path].decode("utf-8")
+    new_text = text.replace(
+        "if x is 0 or x is 1:",
+        "if x == 0 or x == 1:",
+    ).replace(
+        "elif y is 0 or y is 1:",
+        "elif y == 0 or y == 1:",
+    )
+    if new_text == text:
+        return False
+
+    data[path] = new_text.encode("utf-8")
+    tmp = wheel.with_suffix(".tmp.whl")
+    with zipfile.ZipFile(tmp, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+        for name, content in data.items():
+            zf.writestr(name, content)
+    tmp.replace(wheel)
+    return True
+
+
 def patch_wheels() -> None:
     if not WHEEL_DIR.exists():
         return
@@ -159,7 +186,9 @@ def patch_wheels() -> None:
                 patch_metadata_requires(wheel, deps)
                 break
 
-        if pkg == "twitter.common.lang":
+        if pkg == "jmespath":
+            patch_jmespath_visitor(wheel)
+        elif pkg == "twitter.common.lang":
             patch_twitter_common_lang(wheel)
         elif pkg == "twitter.common.zookeeper":
             patch_twitter_common_zookeeper(wheel)
