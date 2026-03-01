@@ -55,3 +55,4 @@ python3.8-uv/
 # Local build and sync scripts
 *.sh
 *.pex
+!src/main/python/apache/aurora/executor/resources/thermos_runner.pex
