@@ -46,6 +46,7 @@ root_patterns = [
 interpreter_constraints = ["CPython==3.9.*"]
 enable_resolves = true
 resolves = { python-default = "3rdparty/python/lock.txt" }
+resolves_to_interpreter_constraints = { python-default = ["CPython>=3.8,<3.10"] }
 
 [test]
 extra_env_vars = ["PYTHONPATH=src/test/python:src/main/python"]

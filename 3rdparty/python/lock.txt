@@ -6,7 +6,7 @@
 // {
 //   "version": 3,
 //   "valid_for_interpreter_constraints": [
-//     "CPython==3.9.*"
+//     "CPython<3.10,>=3.8"
 //   ],
 //   "generated_with_requirements": [
 //     "CherryPy==8.0.0",
@@ -257,6 +257,11 @@
           "artifacts": [
             {
               "algorithm": "sha256",
+              "hash": "fa9db3f79de01457b03d4f01b34cf91bc0048eb2c3846ff26f66687c2f6d16ab",
+              "url": "file://${AURORA_WHEELS_DIR}/MarkupSafe-2.1.5-cp38-cp38-manylinux_2_17_x86_64.manylinux2014_x86_64.whl"
+            },
+            {
+              "algorithm": "sha256",
               "hash": "7a68b554d356a91cce1236aa7682dc01df0edba8d043fd1ce607c49dd3c1edcf",
               "url": "file://${AURORA_WHEELS_DIR}/MarkupSafe-2.1.5-cp39-cp39-macosx_10_9_universal2.whl"
             },
@@ -368,6 +373,11 @@
         },
         {
           "artifacts": [
+            {
+              "algorithm": "sha256",
+              "hash": "f6687a0a9ebf412a1b98532e28ab5563180b6b98f8a62b5e9e627b34d80e0096",
+              "url": "file://${AURORA_WHEELS_DIR}/pykerberos-1.2.1-cp38-cp38-linux_x86_64.whl"
+            },
             {
               "algorithm": "sha256",
               "hash": "d400989e85eba88293557eba426c866af581ec601bd9bdad5da96c3cb4a29dfe",
@@ -586,6 +596,11 @@
           "artifacts": [
             {
               "algorithm": "sha256",
+              "hash": "6ecbef8e9d2bb80e256ef09f1c5b5471965e9504be9821531166a2b79e82a842",
+              "url": "file://${AURORA_WHEELS_DIR}/thrift-0.22.0-cp38-cp38-linux_x86_64.whl"
+            },
+            {
+              "algorithm": "sha256",
               "hash": "e81ff496176ca39fa796a96250e11edc3fca4965b3d8e2d9dae7d6c01e6e67a9",
               "url": "file://${AURORA_WHEELS_DIR}/thrift-0.22.0-cp39-cp39-linux_x86_64.whl"
             },
@@ -737,7 +752,7 @@
     "urllib3==1.22"
   ],
   "requires_python": [
-    "==3.9.*"
+    "<3.10,>=3.8"
   ],
   "resolver_version": "pip-2020-resolver",
   "style": "universal",

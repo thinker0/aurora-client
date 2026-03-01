@@ -32,6 +32,8 @@ export PYTHON=/usr/bin/python3.8
 export PANTS_PYTHON=/usr/bin/python3.8
 export PANTS_PYTHON_INTERPRETER_CONSTRAINTS='["CPython==3.8.*"]'
 export PANTS_PYTHON_BOOTSTRAP_SEARCH_PATH='["/usr/bin/python3.8"]'
+export PANTS_PYTHON_REPOS_FIND_LINKS='["file:///wheels"]'
+export PANTS_PYTHON_REPOS_PATH_MAPPINGS='["AURORA_WHEELS_DIR|/wheels"]'
 export TAR_OPTIONS="--no-same-owner"
 
 make srpm
@@ -42,6 +44,10 @@ yum remove -y git
 # so rpmbuild uses the updated wheelhouse.
 bash /build_wheels.sh
 cp -R --no-preserve=ownership /wheels/. /scratch/src/3rdparty/python/wheels/
+
+# Regenerate lockfile with Linux/Python 3.8 wheel hashes so pex hash
+# validation passes when rpmbuild invokes pants package.
+(cd /scratch/src && ./pants generate-lockfiles --resolve=python-default)
 
 custom_source="/dist/rpmbuild/SOURCES/apache-aurora-${AURORA_VERSION}.tar.gz"
 tar --warning=no-unknown-keyword -C /scratch/src \
