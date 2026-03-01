@@ -13,29 +13,29 @@
 
 # NB: mesos requirements are defined in our sibling BUILD file.
 
-bottle==0.11.6
+bottle==0.12.25
 expiringdict==1.2.2
-certifi==2021.10.8
-futures==2.2.0
+certifi==2026.2.25
 redis3==3.5.2.3
 redis-py-cluster==2.1.3
 chardet==3.0.4
 CherryPy==8.0.0
-idna==2.6
+idna==3.10
 httpretty==0.8.14
 jmespath==0.7.1
-mako==1.0.4
+mako==1.3.10
 compactor==0.2.2
 pex==1.6.12
 pesos==0.2.2
-protobuf==3.5.1
+protobuf==3.20.3
 kazoo==2.10.0
 psutil==5.9.8
 pystachio==0.8.5
-requests==2.18.4
+charset_normalizer==3.4.4
+requests==2.32.4
 requests-kerberos==0.11.0
 requests-mock==1.3.0
 thrift==0.22.0
-urllib3==1.22
+urllib3==2.2.3
 MarkupSafe==2.1.5
-setuptools==67.7.2
+setuptools==75.3.4
