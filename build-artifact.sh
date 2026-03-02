@@ -58,7 +58,7 @@ run_build() {
   }
   
   rsync -a 3rdparty api src pants pants.toml build-support builder specs \
-      --exclude '*.venv' \
+      --exclude '*.venv' --exclude 3rdparty/python/wheels \
       "target/${package_name}/"
       
   patch_aurora_source "${package_name}" "true"
@@ -123,7 +123,7 @@ run_build_platform() {
   }
   
   rsync -a 3rdparty api src pants pants.toml build-support builder specs \
-      --exclude '*.venv' \
+      --exclude '*.venv' --exclude 3rdparty/python/wheels \
       "target/${package_name}/"
       
   patch_aurora_source "${package_name}" "false"
