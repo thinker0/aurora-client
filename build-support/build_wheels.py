@@ -13,6 +13,8 @@ Notes:
 from __future__ import annotations
 
 import argparse
+import hashlib
+import json
 import os
 import re
 import subprocess
@@ -194,6 +196,42 @@ def patch_wheels() -> None:
             patch_twitter_common_zookeeper(wheel)
 
 
+def sync_lock_hashes() -> int:
+    """Update lock.txt sha256 hashes to match actual wheel files on disk."""
+    lock_path = REQ_DIR / "lock.txt"
+    if not lock_path.exists():
+        print("lock.txt not found, skipping sync")
+        return 0
+
+    content = lock_path.read_text()
+    json_start = content.index("\n{")
+    header = content[:json_start]
+    lock_data = json.loads(content[json_start:])
+
+    updated = 0
+    for locked in lock_data.get("locked_resolves", []):
+        for req in locked.get("locked_requirements", []):
+            for artifact in req.get("artifacts", []):
+                url = artifact.get("url", "")
+                if not url.startswith("file://"):
+                    continue
+                fname = url.replace("file://${AURORA_WHEELS_DIR}/", "")
+                fpath = WHEEL_DIR / fname
+                if not fpath.exists():
+                    continue
+                actual = hashlib.sha256(fpath.read_bytes()).hexdigest()
+                if artifact.get("hash", "") != actual:
+                    artifact["hash"] = actual
+                    updated += 1
+
+    if updated:
+        lock_path.write_text(header + "\n" + json.dumps(lock_data, indent=2) + "\n")
+        print(f"Synced {updated} hash(es) in lock.txt")
+    else:
+        print("lock.txt hashes already up to date")
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -202,7 +240,15 @@ def main() -> int:
         default=[],
         help="requirements*.txt path (repeatable); defaults to 3rdparty/python/requirements*.txt",
     )
+    parser.add_argument(
+        "--sync-lock",
+        action="store_true",
+        help="Only sync lock.txt hashes to match current wheel files (no download/patch)",
+    )
     args = parser.parse_args()
+
+    if args.sync_lock:
+        return sync_lock_hashes()
 
     if args.requirements:
         req_files = [Path(p).resolve() for p in args.requirements]
@@ -231,6 +277,7 @@ def main() -> int:
 
     run_pip_wheel(reqs)
     patch_wheels()
+    sync_lock_hashes()
     return 0
 
 
