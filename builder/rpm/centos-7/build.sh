@@ -66,6 +66,7 @@ rpmbuild \
   --define "AURORA_INTERNAL_VERSION ${AURORA_VERSION}" \
   --define "MESOS_VERSION ${MESOS_VERSION}" \
   --define "GRADLE_VERSION ${GRADLE_VERSION}" \
+  --define "__python3 /usr/bin/python3.8" \
   -ba aurora.spec
 
 yum -y install createrepo
