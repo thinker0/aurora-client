@@ -2,34 +2,57 @@
 # Builds CentOS 7 RPM and verifies thermos_runner.pex is correctly embedded
 # in the thermos_executor binary.
 
-set -e
+set -ex
 
 REPO_ROOT=$(git rev-parse --show-toplevel)
 cd "$REPO_ROOT"
 
 AURORA_VERSION=$(cat .auroraversion | tr -d '[:space:]')
-BUILDER="centos-7"
+BUILDER="$1"
 RELEASE_TAR="apache-aurora-${AURORA_VERSION}.tar.gz"
 ARTIFACT_DIR="artifacts/aurora-${BUILDER}"
+CPIO_BIN=$(command -v cpio || true)
+
+if [[ -z "$CPIO_BIN" ]]; then
+  echo "FAIL: cpio not found in PATH"
+  exit 1
+fi
+
+if [[ "$CPIO_BIN" != /* ]]; then
+  CPIO_BIN=$(python3 - "$CPIO_BIN" <<'EOF'
+import os
+import sys
+
+print(os.path.realpath(sys.argv[1]))
+EOF
+)
+fi
 
 echo "=== Building CentOS 7 RPM (version: ${AURORA_VERSION}) ==="
-./build-artifact.sh "${BUILDER}" "${RELEASE_TAR}" "${AURORA_VERSION}"
+echo ./build-artifact.sh "${BUILDER}" "${RELEASE_TAR}" "${AURORA_VERSION}"
 
 echo ""
 echo "=== Verifying thermos_runner.pex is embedded in RPM ==="
 
 # Find the built RPM
-RPM_FILE=$(find "${ARTIFACT_DIR}/rpmbuild/RPMS" -name "apache-aurora-*.rpm" | head -1)
+RPM_FILE=$(find "${ARTIFACT_DIR}/rpmbuild/RPMS" -name "aurora-executor-*.rpm" | head -1)
 if [[ -z "$RPM_FILE" ]]; then
-  echo "FAIL: No RPM file found in ${ARTIFACT_DIR}/rpmbuild/RPMS"
+  echo "FAIL: No aurora-executor RPM file found in ${ARTIFACT_DIR}/rpmbuild/RPMS"
   exit 1
 fi
-echo "RPM: $RPM_FILE"
+RPM_FILE_ABS=$(python3 - "$RPM_FILE" <<'EOF'
+import os
+import sys
+
+print(os.path.realpath(sys.argv[1]))
+EOF
+)
+echo "RPM: ${RPM_FILE_ABS}"
 
 # Extract thermos_executor from the RPM
 TMPDIR=$(mktemp -d)
 pushd "$TMPDIR" > /dev/null
-rpm2cpio "$RPM_FILE" | cpio -idm --quiet ./usr/bin/thermos_executor 2>/dev/null
+rpm2cpio "$RPM_FILE_ABS" | "$CPIO_BIN" -idm --quiet ./usr/bin/thermos_executor 2>/dev/null
 EXECUTOR="$TMPDIR/usr/bin/thermos_executor"
 
 if [[ ! -f "$EXECUTOR" ]]; then
