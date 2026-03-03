@@ -75,9 +75,6 @@ run_build() {
   local wheels_dir
   wheels_dir=$(realpath "$(pwd)/3rdparty/python/wheels")
   local wheels_mode="ro"
-  if [[ "$(basename "$BUILDER_DIR")" == "centos-7" ]]; then
-    wheels_mode="rw"
-  fi
 
   docker run \
     -e AURORA_VERSION=$AURORA_VERSION \

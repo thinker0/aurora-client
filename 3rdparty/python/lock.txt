@@ -139,7 +139,7 @@
           "artifacts": [
             {
               "algorithm": "sha256",
-              "hash": "1073af46f93c431c37dfc92eb37c9ee56c4570cb7b05421aafad662238eb211e",
+              "hash": "d1f375ce2e80df2e375980e7828485b1013104bbcaa452ec831630bf2dbbc8c9",
               "url": "file://${AURORA_WHEELS_DIR}/compactor-0.2.2-py2.py3-none-any.whl"
             }
           ],
@@ -176,7 +176,7 @@
           "artifacts": [
             {
               "algorithm": "sha256",
-              "hash": "35f3e2d3a290009686c7f96a7cb050e4bf732c51a67a0e6b51b1f7653893bb6b",
+              "hash": "aadc0d3d83b7b9b95d62e3f127e7af1ed3848a8dfebf47bd33fc3a884eacab7f",
               "url": "file://${AURORA_WHEELS_DIR}/httpretty-0.8.14-py3-none-any.whl"
             },
             {
@@ -212,7 +212,7 @@
           "artifacts": [
             {
               "algorithm": "sha256",
-              "hash": "7ccb306f0ebce11b4173c98eed7a69ddf145855f615c3c35b316e600076d98a7",
+              "hash": "a1f1955b1d47f165821418928c46289392858281b3e9f0509c347dafc13e44ac",
               "url": "file://${AURORA_WHEELS_DIR}/jmespath-0.7.1-py2.py3-none-any.whl"
             }
           ],
@@ -301,7 +301,7 @@
           "artifacts": [
             {
               "algorithm": "sha256",
-              "hash": "d621537a9c65f2b35fd331e312afc3f0f4945fe377465b741f63c40a942c17c0",
+              "hash": "a16c3553ec3825a372be98b7f12c196bcbd235532afdfa976a60a7ae0e2f68fe",
               "url": "file://${AURORA_WHEELS_DIR}/mesos.interface-0.21.1-py3-none-any.whl"
             },
             {
@@ -319,7 +319,7 @@
           "artifacts": [
             {
               "algorithm": "sha256",
-              "hash": "ef5eec7901fe2a2b17cc1b3f949d82fd4296f7d54fc4ba242063119bdb5142ca",
+              "hash": "34619be0ccaf142f0eade61d79a1d385526aaad5b7905f3de5fa50c7a5b17207",
               "url": "file://${AURORA_WHEELS_DIR}/pesos-0.2.2-py2.py3-none-any.whl"
             }
           ],
@@ -413,7 +413,7 @@
           "artifacts": [
             {
               "algorithm": "sha256",
-              "hash": "852de693516aeb65ea9ea72c4caf7a0534d54595775807fed835db3bd99c483e",
+              "hash": "eba5c5191ba04efda893846d3b5a536ee5819a7d363676929d4c50ee5222c69f",
               "url": "file://${AURORA_WHEELS_DIR}/pykerberos-1.2.1-cp38-cp38-linux_x86_64.whl"
             },
             {
@@ -490,7 +490,7 @@
           "artifacts": [
             {
               "algorithm": "sha256",
-              "hash": "6bd501815c6e6ecd67a0360fb831d71d06e25c3825733d0d205c31ad0b5ac9b0",
+              "hash": "ca0f7eed1eae82bed9641268a1bea8c37700d01eb126f5ff2e27c89ba2fe49e6",
               "url": "file://${AURORA_WHEELS_DIR}/redis3-3.5.2.3-py2.py3-none-any.whl"
             },
             {
@@ -646,7 +646,7 @@
           "artifacts": [
             {
               "algorithm": "sha256",
-              "hash": "e7ef76b9dc615a82022ecfa807490b921cc263d01a259ed8f465962a7448514d",
+              "hash": "529928f657fd978881dfad6dd82ad511fb599cb26fa9d27c187be94a974cbb14",
               "url": "file://${AURORA_WHEELS_DIR}/thrift-0.22.0-cp38-cp38-linux_x86_64.whl"
             },
             {
@@ -684,7 +684,7 @@
           "artifacts": [
             {
               "algorithm": "sha256",
-              "hash": "3dd04df6efe36cca5bf2f28976dcf3b2ce3cd2f046c650ee24fe0b8e3efdd7a3",
+              "hash": "cec49ae44c4f0f41c88df0ac7b04d291e2e413138a03fb051070fc5a4e2d254e",
               "url": "file://${AURORA_WHEELS_DIR}/tornado-4.1-cp38-cp38-linux_x86_64.whl"
             },
             {
@@ -719,7 +719,7 @@
           "artifacts": [
             {
               "algorithm": "sha256",
-              "hash": "9c1b67bc174ffea0956ee2c9fec0c6aadf4d06eb97c021e9622fe5309ce93444",
+              "hash": "cd1e23972f596154c65c9f9404034922f147d928235853754cdef22798e13fb0",
               "url": "file://${AURORA_WHEELS_DIR}/trollius-2.1.post2-py3-none-any.whl"
             },
             {

@@ -40,10 +40,13 @@ make srpm
 yum-builddep -y ../../../dist/rpmbuild/SRPMS/*
 yum remove -y git
 
-# Build wheels inside the container and repack the source tarball
-# so rpmbuild uses the updated wheelhouse.
-bash /build_wheels.sh
+# Seed with pre-built wheels from the (read-only) host mount, then
+# rebuild any CentOS-7/Python-3.8 wheels on top.  We never write back
+# to /wheels so the host copy (Rocky-8 wheels) is left untouched.
 cp -R --no-preserve=ownership /wheels/. /scratch/src/3rdparty/python/wheels/
+(cd /scratch/src \
+  && python3.8 build-support/build_wheels.py \
+  && python3.8 -m pip wheel --no-deps -w 3rdparty/python/wheels pykerberos==1.2.1)
 
 # Regenerate lockfile with Linux/Python 3.8 wheel hashes so pex hash
 # validation passes when rpmbuild invokes pants package.
