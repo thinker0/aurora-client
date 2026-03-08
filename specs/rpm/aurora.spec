@@ -13,6 +13,9 @@
 #
 
 # Overridable variables;
+
+%define __jar_repack 0
+%define __os_install_post %{nil}
 %if %{?!AURORA_VERSION:1}0
 %global AURORA_VERSION 0.23.0
 %endif
