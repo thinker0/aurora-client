@@ -254,6 +254,7 @@ class RecordIO(object):
       return RecordIO.Writer.do_write(self._fp, blob, self._codec, sync=self._sync)
 
 
+
 class StringCodec(RecordIO.Codec):
   """
     A simple string-based implementation of Codec.
@@ -262,15 +263,25 @@ class StringCodec(RecordIO.Codec):
   """
   @staticmethod
   def _validate(blob):
-    if not isinstance(blob, Compatibility.string):
-      raise RecordIO.InvalidTypeException("blob (type=%s) not StringType!" % type(blob))
+    if not isinstance(blob, (str, bytes)):
+      raise RecordIO.InvalidTypeException("blob (type=%s) not String or Bytes!" % type(blob))
     return blob
 
   def encode(self, blob):
-    return self._validate(blob)
+    blob = self._validate(blob)
+    if isinstance(blob, str):
+      return blob.encode('utf-8')
+    return blob
 
   def decode(self, blob):
-    return self._validate(blob)
+    blob = self._validate(blob)
+    if isinstance(blob, bytes):
+      try:
+        return blob.decode('utf-8')
+      except UnicodeDecodeError:
+        return blob
+    return blob
+
 
 
 class StringRecordReader(RecordIO.Reader):

@@ -70,7 +70,7 @@ class ShellHealthCheck(object):
           self._wrapped_cmd,
           timeout=self._timeout_secs,
           preexec_fn=self._preexec_fn,
-          stderr=STDOUT)
+          stderr=STDOUT).decode("utf-8", "replace")
       return True, None
     except subprocess.CalledProcessError as reason:
       # The command didn't return a 0 so provide reason for failure.
