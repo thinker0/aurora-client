@@ -31,7 +31,6 @@ if not hasattr(_uuid_module.UUID, 'get_bytes'):
   _uuid_module.UUID.get_bytes = lambda self: self.bytes
 
 from apache.aurora.common import kazoo_compat
-kazoo_compat.apply()
 from twitter.common import app, log
 from twitter.common.exceptions import ExceptionalThread
 from twitter.common.log.options import LogOptions

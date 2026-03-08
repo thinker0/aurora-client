@@ -213,7 +213,7 @@ class ServiceInstance(object):
 
   @classmethod
   def pack(cls, service_instance):
-    return json.dumps(cls.to_dict(service_instance))
+    return json.dumps(cls.to_dict(service_instance)).encode('utf-8')
 
   def __init__(
       self,
