@@ -29,26 +29,54 @@ def apply() -> None:
         from kazoo.client import KazooClient
         
         
-        if hasattr(KazooClient, 'create') and not hasattr(KazooClient, '_orig_create'):
-            # print("DEBUG: Patching KazooClient.create", file=sys.stderr)
-            orig_create = KazooClient.create
+        
+        def patch_instance(client):
+            if hasattr(client, 'create') and not hasattr(client.create, '_patched'):
+                orig_create = client.create
+                def patched_create(path, value=b'', *args, **kwargs):
+                    if isinstance(value, str):
+                        value = value.encode('utf-8')
+                    return orig_create(path, value, *args, **kwargs)
+                patched_create._patched = True
+                client.create = patched_create
 
+            if hasattr(client, 'set') and not hasattr(client.set, '_patched'):
+                orig_set = client.set
+                def patched_set(path, value, *args, **kwargs):
+                    if isinstance(value, str):
+                        value = value.encode('utf-8')
+                    return orig_set(path, value, *args, **kwargs)
+                patched_set._patched = True
+                client.set = patched_set
+
+        # Patch the class level methods
+        if hasattr(KazooClient, 'create') and not hasattr(KazooClient.create, '_patched'):
             orig_create = KazooClient.create
-            def patched_create(self, path, value=b'', *args, **kwargs):
+            def class_patched_create(self, path, value=b'', *args, **kwargs):
                 if isinstance(value, str):
                     value = value.encode('utf-8')
                 return orig_create(self, path, value, *args, **kwargs)
-            KazooClient._orig_create = orig_create
-            KazooClient.create = patched_create
+            class_patched_create._patched = True
+            KazooClient.create = class_patched_create
 
-        if hasattr(KazooClient, 'set') and not hasattr(KazooClient, '_orig_set'):
+        if hasattr(KazooClient, 'set') and not hasattr(KazooClient.set, '_patched'):
             orig_set = KazooClient.set
-            def patched_set(self, path, value, *args, **kwargs):
+            def class_patched_set(self, path, value, *args, **kwargs):
                 if isinstance(value, str):
                     value = value.encode('utf-8')
                 return orig_set(self, path, value, *args, **kwargs)
-            KazooClient._orig_set = orig_set
-            KazooClient.set = patched_set
+            class_patched_set._patched = True
+            KazooClient.set = class_patched_set
+
+        # Also patch __init__ to ensure any instance is correctly patched
+        if not hasattr(KazooClient, '_orig_init'):
+            orig_init = KazooClient.__init__
+            def patched_init(self, *args, **kwargs):
+                orig_init(self, *args, **kwargs)
+                patch_instance(self)
+            KazooClient._orig_init = orig_init
+            KazooClient.__init__ = patched_init
+
     except ImportError:
         pass
     # Patch native zookeeper module (zkpython)
