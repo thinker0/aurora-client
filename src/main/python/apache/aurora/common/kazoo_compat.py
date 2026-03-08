@@ -51,6 +51,30 @@ def apply() -> None:
             KazooClient.set = patched_set
     except ImportError:
         pass
+    # Patch native zookeeper module (zkpython)
+    try:
+        import zookeeper
+        
+        def wrap_zk_func(func):
+            def wrapped(*args, **kwargs):
+                # ZK functions usually take (handle, path, value, ...)
+                # value is usually the 3rd argument (index 2)
+                new_args = list(args)
+                if len(new_args) > 2 and isinstance(new_args[2], str):
+                    new_args[2] = new_args[2].encode('utf-8')
+                return func(*tuple(new_args), **kwargs)
+            return wrapped
+
+        for func_name in ['create', 'set', 'set2', 'acreate', 'aset']:
+            if hasattr(zookeeper, func_name):
+                orig_func = getattr(zookeeper, func_name)
+                if not hasattr(orig_func, '_patched'):
+                    patched = wrap_zk_func(orig_func)
+                    patched._patched = True
+                    setattr(zookeeper, func_name, patched)
+    except ImportError:
+        pass
+
 
 
     try:
