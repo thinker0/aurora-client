@@ -13,6 +13,7 @@
 #
 
 import ctypes
+import ctypes.util
 import json
 import os
 import subprocess

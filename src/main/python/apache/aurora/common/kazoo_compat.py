@@ -28,7 +28,11 @@ def apply() -> None:
     try:
         from kazoo.client import KazooClient
         
+        
         if hasattr(KazooClient, 'create') and not hasattr(KazooClient, '_orig_create'):
+            # print("DEBUG: Patching KazooClient.create", file=sys.stderr)
+            orig_create = KazooClient.create
+
             orig_create = KazooClient.create
             def patched_create(self, path, value=b'', *args, **kwargs):
                 if isinstance(value, str):
