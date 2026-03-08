@@ -47,6 +47,47 @@ class KazooCompatTest(unittest.TestCase):
         self.assertTrue(hasattr(queue, "LockingQueue"))
         self.assertTrue(hasattr(partitioner, "SetPartitioner"))
 
+    
+    def test_apply_patches_kazoo_client(self):
+        # Mock KazooClient class with required methods for patching
+        class MockKazooClient:
+            def create(self, path, value=b'', *args, **kwargs):
+                return (path, value)
+            def set(self, path, value, *args, **kwargs):
+                return (path, value)
+
+        kazoo_client_mod = types.ModuleType('kazoo.client')
+        kazoo_client_mod.KazooClient = MockKazooClient
+        sys.modules['kazoo.client'] = kazoo_client_mod
+        
+        kazoo_mod = types.ModuleType('kazoo')
+        kazoo_mod.client = kazoo_client_mod
+        sys.modules['kazoo'] = kazoo_mod
+
+        # This should now succeed without AttributeError
+        kazoo_compat.apply()
+        
+        client = MockKazooClient()
+        
+        # Test create with string -> should be converted to bytes
+        # Note: the patch logic uses the closure's orig_create, 
+        # so we need to ensure the patch actually applied to our Mock class.
+        path, value = client.create('/test', 'string_value')
+        self.assertIsInstance(value, bytes)
+        self.assertEqual(value, b'string_value')
+
+        
+        # Test create with bytes (should remain bytes)
+        path, value = client.create('/test', b'bytes_value')
+        self.assertIsInstance(value, bytes)
+        self.assertEqual(value, b'bytes_value')
+
+        # Test set with string
+        path, value = client.set('/test', 'string_value')
+        self.assertIsInstance(value, bytes)
+        self.assertEqual(value, b'string_value')
+
+
 
 class ServerSetEndpointTest(unittest.TestCase):
     def test_unpack_thrift_missing_types(self):

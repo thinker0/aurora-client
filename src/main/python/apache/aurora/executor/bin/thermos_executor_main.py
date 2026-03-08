@@ -30,6 +30,7 @@ import uuid as _uuid_module
 if not hasattr(_uuid_module.UUID, 'get_bytes'):
   _uuid_module.UUID.get_bytes = lambda self: self.bytes
 
+from apache.aurora.common import kazoo_compat
 from twitter.common import app, log
 from twitter.common.exceptions import ExceptionalThread
 from twitter.common.log.options import LogOptions
@@ -306,6 +307,7 @@ def proxy_main():
     if MesosExecutorDriver is None:
       app.error('Could not load MesosExecutorDriver!')
 
+    kazoo_compat.apply()
     thermos_executor = initialize(options)
 
     # Create driver stub

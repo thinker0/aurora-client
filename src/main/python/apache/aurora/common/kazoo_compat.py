@@ -22,6 +22,33 @@ def _set_default(mod: types.ModuleType, name: str, obj) -> None:
 
 
 def apply() -> None:
+    # Patch KazooClient to handle str/bytes for Python 3
+    
+    # Patch KazooClient to handle str/bytes for Python 3
+    try:
+        from kazoo.client import KazooClient
+        
+        if hasattr(KazooClient, 'create') and not hasattr(KazooClient, '_orig_create'):
+            orig_create = KazooClient.create
+            def patched_create(self, path, value=b'', *args, **kwargs):
+                if isinstance(value, str):
+                    value = value.encode('utf-8')
+                return orig_create(self, path, value, *args, **kwargs)
+            KazooClient._orig_create = orig_create
+            KazooClient.create = patched_create
+
+        if hasattr(KazooClient, 'set') and not hasattr(KazooClient, '_orig_set'):
+            orig_set = KazooClient.set
+            def patched_set(self, path, value, *args, **kwargs):
+                if isinstance(value, str):
+                    value = value.encode('utf-8')
+                return orig_set(self, path, value, *args, **kwargs)
+            KazooClient._orig_set = orig_set
+            KazooClient.set = patched_set
+    except ImportError:
+        pass
+
+
     try:
         import kazoo.recipe  # type: ignore
     except Exception:
