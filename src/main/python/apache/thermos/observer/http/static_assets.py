@@ -52,6 +52,6 @@ class StaticAssets(object):
       headers = {}
       if mimetype: headers['Content-Type'] = mimetype
       if encoding: headers['Content-Encoding'] = encoding
-      return HTTPResponse(self._assets[filename], header=headers)
+      return HTTPResponse(self._assets[filename], headers=headers)
     else:
       HttpServer.abort(404, 'Unknown asset: %s' % filename)

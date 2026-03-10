@@ -107,10 +107,7 @@ class BasicAuth(Plugin):
       else:
         # log.debug("userhash: cache(%s) %s:sha256:%s" % (self.get_user(user), user, userhash))
         log.debug("Authentication: sha256:%s" % user_hash)
-        response = HTTPResponse(status=401)
-        response.set_header('WWW-Authenticate', 'Basic realm="%s"' % self._realm)
-        response.status = 401
-        return response
+        raise HTTPResponse(status=401, headers={'WWW-Authenticate': 'Basic realm="%s"' % self._realm})
     return wrap
 
   def close(self):
