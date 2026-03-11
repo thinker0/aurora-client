@@ -310,26 +310,26 @@ class GeneratedCode(object):
 
 # A namespace declaration, e.g.:
 #    namespace java org.apache.aurora.gen
-NAMESPACE_RE = 'namespace\s+(?P<lang>\w+)\s+(?P<namespace>[^\s]+)'
+NAMESPACE_RE = r'namespace\s+(?P<lang>\w+)\s+(?P<namespace>[^\s]+)'
 
 # Matches a complete struct definition, capturing the type and body.
-STRUCT_RE = '(?P<kind>enum|struct|union)\s+(?P<name>\w+)\s+{(?P<body>[^}]+)}'
+STRUCT_RE = r'(?P<kind>enum|struct|union)\s+(?P<name>\w+)\s+{(?P<body>[^}]+)}'
 
 # A possibly-parameterized type name, e.g.:
 #    int
 #    TaskConfig
 #    Set<String>
 #    Map<String, TaskConfig>
-TYPE_PATTERN = '(?P<type>\w+)(?:<(?P<params>[^>]+)>)?'
+TYPE_PATTERN = r'(?P<type>\w+)(?:<(?P<params>[^>]+)>)?'
 
 # A field definition within a struct, e.g.:
 #     1: string name
 #     15: Map<String, TaskConfig> configs  # Configs mapped by name.
-FIELD_RE = '\s*\d+:\s+(?:(?:required|optional)\s+)?(%s)\s+(?P<name>\w+).*' % TYPE_PATTERN
+FIELD_RE = r'\s*\d+:\s+(?:(?:required|optional)\s+)?(%s)\s+(?P<name>\w+).*' % TYPE_PATTERN
 
 # An enum value definition, e.g.:
 #    INVALID_REQUEST = 0,
-ENUM_VALUE_RE = '\s*(?P<name>\w+)\s*=\s*\d+,?'
+ENUM_VALUE_RE = r'\s*(?P<name>\w+)\s*=\s*\d+,?'
 
 
 class Service(object):
@@ -394,11 +394,11 @@ public final class %(name)sMetadata {
 }
 '''
 
-SERVICE_RE = 'service (?P<name>\w+)\s+(extends\s+(?P<super>\w+)\s+)?{(?P<body>[^}]+)}'
+SERVICE_RE = r'service (?P<name>\w+)\s+(extends\s+(?P<super>\w+)\s+)?{(?P<body>[^}]+)}'
 
-METHOD_RE = '\s*(?P<return>\w+)\s+(?P<name>\w+)\((?P<params>[^\)]*)\)'
+METHOD_RE = r'\s*(?P<return>\w+)\s+(?P<name>\w+)\((?P<params>[^\)]*)\)'
 
-PARAM_RE = '\d+\:\s+%s\s+(?:\w+)' % TYPE_PATTERN
+PARAM_RE = r'\d+\:\s+%s\s+(?:\w+)' % TYPE_PATTERN
 
 THRIFT_TYPES = {
   'bool': PrimitiveType('boolean', 'Boolean'),
@@ -443,7 +443,7 @@ def parse_structs(thrift_defs):
     return Field(ttype, field.group('name'))
 
   def parse_fields(field_str):
-    return map(parse_field, re.finditer(FIELD_RE, field_str))
+    return list(map(parse_field, re.finditer(FIELD_RE, field_str)))
 
   def parse_values(enum_str):
     return [m.group('name') for m in re.finditer(ENUM_VALUE_RE, enum_str)]
@@ -480,7 +480,7 @@ def parse_services(service_defs):
 
 
 def to_upper_snake_case(s):
-  return re.sub('([A-Z])', '_\\1', s).upper()
+  return re.sub(r'([A-Z])', r'_\1', s).upper()
 
 
 def generate_union_field(code, struct, field):
@@ -569,6 +569,14 @@ def generate_struct_field(code, field, builder_calls):
     builder_calls.append('.set%s(%s)' % (field.capitalized_name(), builder_assignment))
   code.add_assignment(assignment % assignment_args)
 
+# Fields excluded from equals() and hashCode() to avoid write amplification.
+# These fields are still present in the immutable wrapper but are intentionally
+# omitted from equality checks (e.g. timestamps that change on every update).
+EQUALS_EXCLUDED_FIELDS = {
+  'HostAttributes': {'lastSeenMs'},
+}
+
+
 def generate_java(struct):
   code = GeneratedCode(struct.codegen_name(), struct.name)
   code.add_import('java.util.Objects')
@@ -650,8 +658,12 @@ def generate_java(struct):
     field_names = [f.name for f in struct.fields]
     code.copy_constructor = 'return new %s()%s;' % (struct.name, '\n        ' + '\n        '.join(builder_calls))
     code.to_string = '\n        ' + '\n        '.join(['.add("%s", %s)' % (f, f) for f in field_names])
-    code.equals = '\n        && '.join(['Objects.equals(%s, other.%s)' % (f, f) for f in field_names])
-    code.hash_code = '\n          ' + ',\n          '.join([f for f in field_names])
+    excluded = EQUALS_EXCLUDED_FIELDS.get(struct.name, set())
+    unknown = excluded - set(field_names)
+    assert not unknown, 'EQUALS_EXCLUDED_FIELDS references unknown fields for %s: %s' % (struct.name, unknown)
+    eq_field_names = [f for f in field_names if f not in excluded]
+    code.equals = '\n        && '.join(['Objects.equals(%s, other.%s)' % (f, f) for f in eq_field_names])
+    code.hash_code = '\n          ' + ',\n          '.join(eq_field_names)
 
   # Special case for structs with no fields.
   if not struct.fields:
