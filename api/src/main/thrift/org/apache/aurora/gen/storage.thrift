@@ -100,6 +100,10 @@ struct RemoveHostMaintenanceRequest {
   1: string host
 }
 
+struct RemoveHostAttributes {
+  1: string host
+}
+
 union Op {
   1: SaveFrameworkId saveFrameworkId
   2: SaveCronJob saveCronJob
@@ -119,6 +123,7 @@ union Op {
   18: RemoveJobUpdates removeJobUpdate
   19: SaveHostMaintenanceRequest saveHostMaintenanceRequest
   20: RemoveHostMaintenanceRequest removeHostMaintenanceRequest
+  21: RemoveHostAttributes removeHostAttributes
 }
 
 // The current schema version ID.  This should be incremented each time the

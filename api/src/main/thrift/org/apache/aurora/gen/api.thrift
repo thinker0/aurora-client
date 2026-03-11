@@ -60,6 +60,7 @@ struct HostAttributes {
   2: set<Attribute>  attributes
   3: optional MaintenanceMode mode
   4: optional string slaveId
+  5: optional i64    lastSeenMs   // epoch ms, last Mesos offer or attribute save
 }
 
 /**
