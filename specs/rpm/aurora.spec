@@ -37,11 +37,11 @@
 %endif
 
 %if %{?!GRADLE_VERSION:1}0
-%global GRADLE_VERSION 6.9.4
+%global GRADLE_VERSION 8.9
 %endif
 
 %if %{?!JAVA_VERSION:!}0
-%global JAVA_VERSION 11
+%global JAVA_VERSION 17
 %endif
 
 %if %{?!MESOS_VERSION:1}0
@@ -170,8 +170,7 @@ state of all running tasks.
 %setup -n apache-aurora-%{AURORA_INTERNAL_VERSION}
 
 %build
-# Preferences Java 11 over any other Java version.
-export PATH=/usr/lib/jvm/java-11-openjdk/bin:${PATH}
+export PATH=${JAVA_HOME}/bin:${PATH}
 
 # Downloads Gradle executable.
 wget %{GRADLE_BASEURL}/gradle-%{GRADLE_VERSION}-bin.zip

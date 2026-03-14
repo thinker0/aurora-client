@@ -24,7 +24,7 @@ RUN yum update -y && \
     flex vim \
     gcc \
     gcc-c++ \
-    java-11-openjdk-headless \
+    java-17-openjdk-headless \
     krb5-devel \
     libcurl-devel \
     libffi-devel \
@@ -41,9 +41,8 @@ RUN yum update -y && \
     zlib-devel
 
 ENV LC_ALL=C
-
-# Crude workaround for https://github.com/gradle/gradle/issues/1782
-RUN mkdir -p /usr/lib/jvm/java-8-openjdk-amd64/jre/lib/security
-RUN ln -s /etc/pki/java/cacerts /usr/lib/jvm/java-8-openjdk-amd64/jre/lib/security/cacerts
+RUN JAVA_DIR=$(dirname $(dirname $(readlink -f /usr/bin/java))) && \
+    ln -sfn "$JAVA_DIR" /usr/lib/jvm/java-17-openjdk
+ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk
 
 ADD build.sh /build.sh

@@ -21,6 +21,13 @@ RUN yum -y upgrade --exclude 'kernel*' \
     && sed -i -e '/^mirrorlist/d;/^#baseurl=/{s,^#,,;s,/mirror,/vault,;}' /etc/yum.repos.d/CentOS-SCLo*.repo
 
 RUN yum update -y
+# java-17-openjdk-headless may not be in the CentOS 7 vault; add Adoptium as fallback
+RUN yum install -y java-17-openjdk-headless 2>/dev/null || \
+    (printf '[Adoptium]\nname=Adoptium\nbaseurl=https://packages.adoptium.net/artifactory/rpm/rhel/7/x86_64\nenabled=1\ngpgcheck=1\ngpgkey=https://packages.adoptium.net/artifactory/api/gpg/key/public\n' \
+        > /etc/yum.repos.d/adoptium.repo && \
+    yum install -y temurin-17-jdk && \
+    ln -sfn /usr/lib/jvm/temurin-17 /usr/lib/jvm/java-17-openjdk)
+
 RUN yum install -y \
     make \
     rpm-build \
@@ -30,7 +37,6 @@ RUN yum install -y \
     flex \
     gcc \
     gcc-c++ \
-    java-11-openjdk-headless \
     krb5-devel \
     libcurl-devel \
     libffi-devel \
@@ -53,7 +59,9 @@ RUN /usr/bin/ln -sfT /opt/rh/rh-python38/root/usr/bin/python3 /usr/bin/python3 \
       && /usr/bin/ln -sfT /opt/rh/rh-python38/root/usr/bin/python3.8 /usr/bin/python3.8
 
 ENV LC_ALL=en_US.utf8
-ENV JAVA_HOME=/usr/lib/jvm/java-11-openjdk
+RUN JAVA_DIR=$(dirname $(dirname $(readlink -f /usr/bin/java))) && \
+    ln -sfn "$JAVA_DIR" /usr/lib/jvm/java-17-openjdk
+ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk
 
 ADD build.sh /build.sh
 ADD build_wheels.sh /build_wheels.sh

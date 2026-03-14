@@ -11,9 +11,20 @@
 # limitations under the License.
 #
 FROM --platform=linux/amd64 centos:7
-ENV LANG en_US.UTF-8
-ENV LC_ALL en_US.UTF-8
+ENV LANG=en_US.UTF-8
+ENV LC_ALL=en_US.UTF-8
+# CentOS 7.9.2009(EOL) is the latest version available in the vault
+RUN sed -i -e '/^mirrorlist/d;/^#baseurl=/{s,^#,,;s,/mirror,/vault,;}' /etc/yum.repos.d/CentOS*.repo
+
 RUN yum update -y
+
+# java-17-openjdk-devel may not be in the CentOS 7 vault; add Adoptium as fallback
+RUN yum install -y java-17-openjdk-devel 2>/dev/null || \
+    (printf '[Adoptium]\nname=Adoptium\nbaseurl=https://packages.adoptium.net/artifactory/rpm/rhel/7/x86_64\nenabled=1\ngpgcheck=1\ngpgkey=https://packages.adoptium.net/artifactory/api/gpg/key/public\n' \
+        > /etc/yum.repos.d/adoptium.repo && \
+    yum install -y temurin-17-jdk && \
+    ln -sfn /usr/lib/jvm/temurin-17 /usr/lib/jvm/java-17-openjdk)
+
 RUN yum install -y \
     make \
     rpm-build \
@@ -23,7 +34,6 @@ RUN yum install -y \
     flex \
     gcc \
     gcc-c++ \
-    java-1.8.0-openjdk-devel \
     krb5-devel \
     libcurl-devel \
     libffi-devel \
@@ -41,8 +51,8 @@ RUN yum install -y \
     vim \
     zlib-devel
 
-# Crude workaround for https://github.com/gradle/gradle/issues/1782
-RUN mkdir -p /usr/lib/jvm/java-8-openjdk-amd64/jre/lib/security
-RUN ln -s /etc/pki/java/cacerts /usr/lib/jvm/java-8-openjdk-amd64/jre/lib/security/cacerts
+RUN JAVA_DIR=$(dirname $(dirname $(readlink -f /usr/bin/java))) && \
+    ln -sfn "$JAVA_DIR" /usr/lib/jvm/java-17-openjdk
+ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk
 
 ADD build.sh /build.sh

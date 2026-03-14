@@ -30,7 +30,7 @@ RUN yum update -y && \
     flex vim \
     gcc \
     gcc-c++ \
-    java-11-openjdk-headless \
+    java-17-openjdk-headless \
     libevent-devel \
     libtool \
     krb5-devel \
@@ -49,6 +49,8 @@ RUN yum update -y && \
     zlib-devel
 
 ENV LC_ALL=C
-ENV JAVA_HOME=/usr/lib/jvm/java-11-openjdk
+RUN JAVA_DIR=$(dirname $(dirname $(readlink -f /usr/bin/java))) && \
+    ln -sfn "$JAVA_DIR" /usr/lib/jvm/java-17-openjdk
+ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk
 
 ADD build.sh /build.sh
