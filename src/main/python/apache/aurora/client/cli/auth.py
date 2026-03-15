@@ -1,105 +1,339 @@
 
+import base64
+import hashlib
 import http.server
+import json
 import os
+import secrets
+import socket
 import socketserver
+import sys
 import threading
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
 import webbrowser
 from urllib.parse import urlparse, parse_qs
 
-from apache.aurora.client.cli import Noun, Verb, Context
+from apache.aurora.client.cli import Noun, Verb
+from apache.aurora.client.cli.context import AuroraCommandContext
 from apache.aurora.client.cli.options import CommandOption
+from apache.aurora.common.clusters import CLUSTERS
 
-class LoginVerb(Verb):
-  @property
-  def name(self):
-    return 'login'
 
-  @property
-  def help(self):
-    return 'Authenticate with the cluster via OAuth2-Proxy or OIDC'
+SESSION_DIR = os.path.expanduser('~/.aurora')
 
-  def get_options(self):
-    return [
-      CommandOption('cluster', type=str, help='Cluster to authenticate with')
-    ]
 
-  def execute(self, context):
-    cluster_name = context.options.cluster
-    cluster = context.get_cluster(cluster_name)
-    scheduler_uri = cluster.scheduler_uri
-    mechanism = getattr(cluster, 'auth_mechanism', 'PROXY_SESSION')
+def _session_file(cluster_name):
+    return os.path.join(SESSION_DIR, f'session.{cluster_name}')
 
-    if mechanism == 'OIDC_DEVICE':
-      from apache.aurora.common.auth.auth_module import OidcDeviceAuth
-      auth = OidcDeviceAuth(token_file=os.path.expanduser(f'~/.aurora/token.{cluster_name}'))
-      if hasattr(cluster, 'oidc_issuer'): auth._issuer = cluster.oidc_issuer
-      if hasattr(cluster, 'oidc_client_id'): auth._client_id = cluster.oidc_client_id
-      
-      
-      token_file = os.path.expanduser(f'~/.aurora/token.{cluster_name}')
-      if auth.authenticate_via_device_flow():
-        if os.path.exists(auth._token_file):
-          os.chmod(auth._token_file, 0o600)
-        print(f'Successfully authenticated with OIDC for {cluster_name}')
 
-        return 0
-      return 1
+def save_session(cluster_name, data):
+    os.makedirs(SESSION_DIR, mode=0o700, exist_ok=True)
+    path = _session_file(cluster_name)
+    with open(path, 'w') as f:
+        json.dump(data, f)
+    os.chmod(path, 0o600)
 
-    captured_cookie = None
+
+def load_session(cluster_name):
+    path = _session_file(cluster_name)
+    if not os.path.exists(path):
+        return None
+    with open(path) as f:
+        return json.load(f)
+
+
+def _oidc_discovery(discovery_url):
+    with urllib.request.urlopen(discovery_url, timeout=10) as resp:
+        return json.loads(resp.read())
+
+
+def _pkce_pair():
+    verifier = secrets.token_urlsafe(64)
+    digest = hashlib.sha256(verifier.encode()).digest()
+    challenge = base64.urlsafe_b64encode(digest).rstrip(b'=').decode()
+    return verifier, challenge
+
+
+def _free_port():
+    with socket.socket() as s:
+        s.bind(('127.0.0.1', 0))
+        return s.getsockname()[1]
+
+
+def _is_browser_available():
+    if not sys.stdout.isatty():
+        return False
+    if sys.platform in ('darwin', 'win32', 'cygwin'):
+        return True
+    return bool(os.environ.get('DISPLAY') or os.environ.get('WAYLAND_DISPLAY'))
+
+
+def _exchange_code(token_endpoint, client_id, code, redirect_uri, code_verifier):
+    data = urllib.parse.urlencode({
+        'grant_type': 'authorization_code',
+        'client_id': client_id,
+        'code': code,
+        'redirect_uri': redirect_uri,
+        'code_verifier': code_verifier,
+    }).encode()
+    req = urllib.request.Request(token_endpoint, data=data, method='POST')
+    req.add_header('Content-Type', 'application/x-www-form-urlencoded')
+    with urllib.request.urlopen(req, timeout=15) as resp:
+        return json.loads(resp.read())
+
+
+def _poll_device_token(token_endpoint, client_id, device_code, interval, expires_in):
+    params = {
+        'grant_type': 'urn:ietf:params:oauth:grant-type:device_code',
+        'client_id': client_id,
+        'device_code': device_code,
+    }
+    deadline = time.time() + expires_in
+    wait = interval
+    while time.time() < deadline:
+        time.sleep(wait)
+        req = urllib.request.Request(
+            token_endpoint,
+            data=urllib.parse.urlencode(params).encode(),
+            method='POST',
+        )
+        req.add_header('Content-Type', 'application/x-www-form-urlencoded')
+        try:
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                return json.loads(resp.read())
+        except urllib.error.HTTPError as e:
+            body = json.loads(e.read())
+            error = body.get('error', '')
+            if error == 'authorization_pending':
+                continue
+            elif error == 'slow_down':
+                wait += 5
+            elif error == 'expired_token':
+                raise RuntimeError('Device code expired. Please try again.')
+            else:
+                raise RuntimeError(f'{error}: {body.get("error_description", "")}')
+    raise RuntimeError('Device authorization timed out.')
+
+
+# ---------------------------------------------------------------------------
+# Method 1 — Browser (Authorization Code + PKCE)
+# ---------------------------------------------------------------------------
+
+def _browser_auth(discovery, client_id, cluster_name):
+    authorization_endpoint = discovery['authorization_endpoint']
+    token_endpoint = discovery['token_endpoint']
+
+    port = _free_port()
+    redirect_uri = f'http://localhost:{port}/callback'
+    verifier, challenge = _pkce_pair()
+
+    auth_url = '{}?{}'.format(
+        authorization_endpoint,
+        urllib.parse.urlencode({
+            'response_type': 'code',
+            'client_id': client_id,
+            'redirect_uri': redirect_uri,
+            'scope': 'openid email profile offline_access',
+            'code_challenge': challenge,
+            'code_challenge_method': 'S256',
+        }),
+    )
+
+    auth_code = [None]
+    auth_error = [None]
     stop_event = threading.Event()
 
-    class RedirectHandler(http.server.BaseHTTPRequestHandler):
-      def do_GET(self):
-        nonlocal captured_cookie
-        self.send_response(200)
-        self.send_header('Content-type', 'text/html')
-        self.end_headers()
-        self.wfile.write(b'<html><body><h1>Authentication Successful</h1><p>You can close this window now.</p></body></html>')
-        cookie_header = self.headers.get('Cookie')
-        if cookie_header:
-          captured_cookie = cookie_header
-        stop_event.set()
-      def log_message(self, format, *args): pass
+    class _CallbackHandler(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            params = parse_qs(urlparse(self.path).query)
+            if 'code' in params:
+                auth_code[0] = params['code'][0]
+                body = (
+                    b'<html><body><h2>Authentication successful!</h2>'
+                    b'<p>You may close this window and return to the terminal.</p>'
+                    b'</body></html>'
+                )
+                self.send_response(200)
+            else:
+                auth_error[0] = params.get('error', ['unknown'])[0]
+                body = f'<html><body><h2>Authentication failed: {auth_error[0]}</h2></body></html>'.encode()
+                self.send_response(400)
+            self.send_header('Content-Type', 'text/html; charset=utf-8')
+            self.send_header('Content-Length', str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            stop_event.set()
 
-    port = 12345
+        def log_message(self, fmt, *args):
+            pass
+
+    server = socketserver.TCPServer(('127.0.0.1', port), _CallbackHandler)
+    server.allow_reuse_address = True
+    t = threading.Thread(target=server.serve_forever, daemon=True)
+    t.start()
+
+    print(f'Opening browser for login on cluster "{cluster_name}"...')
+    webbrowser.open(auth_url)
+    print('Waiting for authentication (timeout 5 minutes)...')
+
+    if not stop_event.wait(timeout=300):
+        server.shutdown()
+        print('Authentication timed out.')
+        return 1
+
+    server.shutdown()
+
+    if not auth_code[0]:
+        print(f'Authentication failed: {auth_error[0]}')
+        return 1
+
     try:
-      server = socketserver.TCPServer(('127.0.0.1', port), RedirectHandler)
-    except OSError:
-      port = 12346
-      server = socketserver.TCPServer(('127.0.0.1', port), RedirectHandler)
+        tokens = _exchange_code(token_endpoint, client_id, auth_code[0], redirect_uri, verifier)
+    except Exception as e:
+        print(f'Token exchange failed: {e}')
+        return 1
 
-    server_thread = threading.Thread(target=server.serve_forever, daemon=True)
-    server_thread.start()
+    _persist_tokens(cluster_name, tokens)
+    return 0
 
-    login_url = f'{scheduler_uri}/oauth2/start?rd=http://localhost:{port}/'
-    print(f'Opening browser for login: {login_url}')
-    webbrowser.open(login_url)
 
-    print('Waiting for authentication results (timeout 5m)...')
-    if stop_event.wait(timeout=300):
-      
-      session_file = os.path.expanduser(f'~/.aurora/session.{cluster_name}')
-      with open(session_file, 'w') as f:
-        f.write(captured_cookie)
-      os.chmod(session_file, 0o600) # Secure file permissions
-      print(f'Successfully authenticated and saved session to {session_file}')
+# ---------------------------------------------------------------------------
+# Method 2 — Device Authorization Flow (headless / server)
+# ---------------------------------------------------------------------------
 
-      server.shutdown()
-      return 0
+def _device_auth(discovery, client_id, cluster_name):
+    device_endpoint = discovery.get('device_authorization_endpoint')
+    if not device_endpoint:
+        print('Error: OIDC provider does not support Device Authorization Flow.')
+        print('Please run this command on a machine with a browser.')
+        return 1
+
+    token_endpoint = discovery['token_endpoint']
+
+    req = urllib.request.Request(
+        device_endpoint,
+        data=urllib.parse.urlencode({
+            'client_id': client_id,
+            'scope': 'openid email profile offline_access',
+        }).encode(),
+        method='POST',
+    )
+    req.add_header('Content-Type', 'application/x-www-form-urlencoded')
+    with urllib.request.urlopen(req, timeout=15) as resp:
+        dr = json.loads(resp.read())
+
+    user_code = dr['user_code']
+    verification_uri = dr.get('verification_uri_complete') or dr['verification_uri']
+    device_code = dr['device_code']
+    interval = dr.get('interval', 5)
+    expires_in = dr.get('expires_in', 300)
+
+    print()
+    print('=' * 62)
+    print('  Device Authorization  —  cluster: ' + cluster_name)
+    print('=' * 62)
+    if dr.get('verification_uri_complete'):
+        print(f'  Open this URL in any browser:')
+        print(f'  {verification_uri}')
     else:
-      print('Failed to capture authentication cookie (timeout).')
-      server.shutdown()
-      return 1
+        print(f'  1. Open:        {verification_uri}')
+        print(f'  2. Enter code:  {user_code}')
+    print(f'  (expires in {expires_in}s)')
+    print('=' * 62)
+    print()
+
+    try:
+        tokens = _poll_device_token(token_endpoint, client_id, device_code, interval, expires_in)
+    except RuntimeError as e:
+        print(f'Authentication failed: {e}')
+        return 1
+
+    _persist_tokens(cluster_name, tokens)
+    return 0
+
+
+def _persist_tokens(cluster_name, tokens):
+    tokens['cluster'] = cluster_name
+    tokens['expires_at'] = int(time.time()) + tokens.get('expires_in', 3600)
+    save_session(cluster_name, tokens)
+    print(f'Authenticated. Session saved to {_session_file(cluster_name)}')
+
+
+# ---------------------------------------------------------------------------
+# CLI Nouns / Verbs
+# ---------------------------------------------------------------------------
+
+class LoginVerb(Verb):
+    @property
+    def name(self):
+        return 'login'
+
+    @property
+    def help(self):
+        return (
+            'Authenticate with a cluster via OIDC.\n'
+            'On Mac/desktop the browser flow (Authorization Code + PKCE) is used.\n'
+            'On headless servers the Device Authorization Flow is used automatically.'
+        )
+
+    def get_options(self):
+        return [
+            CommandOption('cluster', type=str, help='Cluster name (from clusters.json)'),
+            CommandOption(
+                '--device', action='store_true', default=False,
+                help='Force Device Authorization Flow regardless of environment',
+            ),
+        ]
+
+    def execute(self, context):
+        cluster_name = context.options.cluster
+        if cluster_name not in CLUSTERS:
+            context.print_err(f'Unknown cluster: {cluster_name}')
+            return 1
+
+        cluster = CLUSTERS[cluster_name]
+        oidc_issuer = getattr(cluster, 'oidc_issuer', None)
+        client_id = getattr(cluster, 'oidc_client_id', 'aurora-cli')
+
+        if not oidc_issuer:
+            context.print_err(
+                f'Cluster "{cluster_name}" has no oidc_issuer.\n'
+                'Add "oidc_issuer" (and optionally "oidc_client_id") to clusters.json.'
+            )
+            return 1
+
+        discovery_url = oidc_issuer.rstrip('/') + '/.well-known/openid-configuration'
+
+        try:
+            discovery = _oidc_discovery(discovery_url)
+        except Exception as e:
+            context.print_err(f'Failed to fetch OIDC discovery document: {e}')
+            return 1
+
+        use_device = context.options.device or not _is_browser_available()
+
+        if use_device:
+            return _device_auth(discovery, client_id, cluster_name)
+        else:
+            return _browser_auth(discovery, client_id, cluster_name)
+
 
 class Auth(Noun):
-  @property
-  def name(self):
-    return 'auth'
+    @classmethod
+    def create_context(cls):
+        return AuroraCommandContext()
 
-  @property
-  def help(self):
-    return 'Authentication related commands'
+    @property
+    def name(self):
+        return 'auth'
 
-  def __init__(self):
-    super(Auth, self).__init__()
-    self.register_verb(LoginVerb())
+    @property
+    def help(self):
+        return 'Authentication commands (OIDC login, session management)'
+
+    def __init__(self):
+        super(Auth, self).__init__()
+        self.register_verb(LoginVerb())

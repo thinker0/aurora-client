@@ -20,6 +20,40 @@ cd /scratch
 
 tar --warning=no-unknown-keyword --strip-components 1 -C src -xf /src.tar.gz
 
+# Bootstrap thrift compiler if not pre-injected by patch.py.
+# Required by pants apache-thrift backend; pants does NOT auto-compile it.
+if [ ! -f /scratch/src/build-support/thrift/thrift ]; then
+    echo "No pre-built thrift binary found; compiling thrift from source..."
+    THRIFT_VERSION="0.22.0"
+    THRIFT_URL="https://archive.apache.org/dist/thrift/${THRIFT_VERSION}/thrift-${THRIFT_VERSION}.tar.gz"
+    cd /tmp
+    wget -q "${THRIFT_URL}" -O thrift-src.tar.gz
+    tar xzf thrift-src.tar.gz
+    cd "thrift-${THRIFT_VERSION}"
+    cmake3 \
+        -DBUILD_TESTING=OFF \
+        -DBUILD_EXAMPLES=OFF \
+        -DBUILD_TUTORIALS=OFF \
+        -DBUILD_COMPILER=ON \
+        -DWITH_CPP=OFF \
+        -DWITH_PYTHON=OFF \
+        -DWITH_JAVA=OFF \
+        -DWITH_ERLANG=OFF \
+        -DWITH_NODEJS=OFF \
+        -DCMAKE_BUILD_TYPE=Release \
+        .
+    make -j"$(nproc)" thrift-compiler
+    mkdir -p /scratch/src/build-support/thrift
+    install -m 755 compiler/cpp/bin/thrift /scratch/src/build-support/thrift/thrift
+    echo "Compiled thrift $(/scratch/src/build-support/thrift/thrift --version)"
+    cd /scratch
+fi
+
+# Install thrift to /usr/local/bin so pants can find it via <PATH> fallback.
+if [ -f /scratch/src/build-support/thrift/thrift ]; then
+    install -m 755 /scratch/src/build-support/thrift/thrift /usr/local/bin/thrift
+fi
+
 cp -R /specs/rpm .
 cd rpm
 
@@ -53,9 +87,10 @@ cp -R --no-preserve=ownership /wheels/. /scratch/src/3rdparty/python/wheels/
 (cd /scratch/src && ./pants generate-lockfiles --resolve=python-default)
 
 custom_source="/dist/rpmbuild/SOURCES/apache-aurora-${AURORA_VERSION}.tar.gz"
-tar --warning=no-unknown-keyword -C /scratch/src \
+tar --warning=no-unknown-keyword -C /scratch \
   -czf "${custom_source}" \
-  --transform "s,^,apache-aurora-${AURORA_VERSION}/," .
+  --transform "s,^src,apache-aurora-${AURORA_VERSION}," \
+  src
 
 rpmbuild \
   --define "_topdir /dist" \

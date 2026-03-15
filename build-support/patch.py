@@ -6,6 +6,37 @@ is_container = os.environ.get("IS_CONTAINER") == "true"
 image_name = os.environ.get("IMG_NAME", "")
 base_path = Path("target") / package_name
 
+# Inject pre-built thrift binary to avoid download issues.
+# IMPORTANT: centos-7 uses glibc 2.17; binaries built on rocky-8/9 (glibc 2.28+) will not
+# execute on centos-7. Always prefer the centos-7 binary — it runs everywhere.
+is_centos7 = 'centos-7' in image_name
+
+if is_centos7:
+    possible_thrift_sources = [
+        f'artifacts/aurora-centos-7/rpmbuild/BUILD/{package_name}/build-support/thrift/thrift',
+    ]
+else:
+    possible_thrift_sources = [
+        f'artifacts/aurora-centos-7/rpmbuild/BUILD/{package_name}/build-support/thrift/thrift',
+        f'artifacts/aurora-rocky-8/rpmbuild/BUILD/{package_name}/build-support/thrift/thrift',
+    ]
+
+target_thrift = base_path / 'build-support/thrift/thrift'
+
+# Always remove stale binary so the correct platform binary is re-evaluated each build.
+if target_thrift.exists():
+    target_thrift.unlink()
+
+for src in possible_thrift_sources:
+    src_path = Path(src)
+    if src_path.exists():
+        print(f'Injecting pre-built thrift from {src}')
+        target_thrift.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src_path, target_thrift)
+        os.chmod(target_thrift, 0o755)
+        break
+
+
 print(f"--- Python Patching Start for {package_name} (image: {image_name}) ---")
 
 # Patch build.gradle for Python 3 and Node.js
@@ -52,27 +83,24 @@ if codegen_path.exists():
     codegen_path.write_text(codegen)
 
 # Patch pants.toml
+
 pants_toml = base_path / "pants.toml"
 if pants_toml.exists():
     text = pants_toml.read_text()
-    text = text.replace('indexes = ["https://pypi.org/simple"]', 'indexes = []')
-    if is_container:
-        new_wheels_url = f"file:///dist/rpmbuild/BUILD/{package_name}/3rdparty/python/wheels"
+    
+    # 1. Force version to 0.22
+    text = text.replace('expected_version = "0.22.0"', 'expected_version = "0.22"')
+    
+    # 2. Force RELATIVE search paths (relative to pants.toml) with <PATH> fallback
+    thrift_rel_dir = "build-support/thrift"
+    thrift_section = f"\n[apache-thrift]\nthrift_search_paths = [\"{thrift_rel_dir}\", \"<PATH>\"]\nexpected_version = \"0.22\"\n"
+    
+    if "[apache-thrift]" in text:
+        text = re.sub(r"\[apache-thrift\].*?(\n\n|\Z)", thrift_section, text, flags=re.DOTALL)
     else:
-        wheels_dir = (base_path / "3rdparty/python/wheels").resolve().as_posix()
-        new_wheels_url = f"file://{wheels_dir}"
-    text = re.sub(r'file:///.*/3rdparty/python/wheels', new_wheels_url, text)
+        text += thrift_section
+        
     pants_toml.write_text(text)
-
-# Replace symlinks
-for rel_path in ["3rdparty/python/wheels", "build-support/thrift/thrift"]:
-    path = base_path / rel_path
-    if path.exists() and path.is_symlink():
-        resolved = path.resolve()
-        path.unlink()
-        if resolved.is_dir():
-            shutil.copytree(resolved, path, symlinks=False)
-        elif resolved.is_file():
-            shutil.copy2(resolved, path)
-
-print("--- Python Patching Completed ---")
+    print(f"--- DEBUG: VERIFYING pants.toml at {pants_toml} ---")
+    print(pants_toml.read_text())
+    print("--- DEBUG: END VERIFYING ---")

@@ -20,6 +20,11 @@ RUN yum update -y && \
     rpm-build \
     yum-utils \
     apr-devel \
+    autoconf \
+    automake \
+    bison \
+    boost-devel \
+    cmake \
     cyrus-sasl-devel \
     flex vim \
     gcc \
@@ -27,7 +32,9 @@ RUN yum update -y && \
     java-17-openjdk-headless \
     krb5-devel \
     libcurl-devel \
+    libevent-devel \
     libffi-devel \
+    libtool \
     openssl \
     openssl-devel \
     patch \

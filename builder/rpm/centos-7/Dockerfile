@@ -17,8 +17,10 @@ ENV LC_ALL=en_US.UTF-8
 RUN sed -i -e '/^mirrorlist/d;/^#baseurl=/{s,^#,,;s,/mirror,/vault,;}' /etc/yum.repos.d/CentOS*.repo
 
 RUN yum -y upgrade --exclude 'kernel*' \
-    && yum -y install centos-release-scl-rh \
-    && sed -i -e '/^mirrorlist/d;/^#baseurl=/{s,^#,,;s,/mirror,/vault,;}' /etc/yum.repos.d/CentOS-SCLo*.repo
+    && yum -y install centos-release-scl-rh epel-release \
+    && sed -i -e '/^mirrorlist/d;/^#baseurl=/{s,^#,,;s,/mirror,/vault,;}' /etc/yum.repos.d/CentOS-SCLo*.repo \
+    && sed -i -e 's|^#baseurl=https://download.fedoraproject.org/pub/epel/|baseurl=https://archives.fedoraproject.org/pub/archive/epel/|' /etc/yum.repos.d/epel*.repo \
+    && sed -i -e '/^mirrorlist/d' /etc/yum.repos.d/epel*.repo
 
 RUN yum update -y
 # java-17-openjdk-headless may not be in the CentOS 7 vault; add Adoptium as fallback
@@ -33,13 +35,20 @@ RUN yum install -y \
     rpm-build \
     yum-utils \
     apr-devel \
+    autoconf \
+    automake \
+    bison \
+    boost-devel \
+    cmake3 \
     cyrus-sasl-devel \
     flex \
     gcc \
     gcc-c++ \
     krb5-devel \
     libcurl-devel \
+    libevent-devel \
     libffi-devel \
+    libtool \
     openssl \
     openssl-devel \
     patch \
