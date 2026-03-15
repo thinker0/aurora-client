@@ -11,6 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import sys
 from abc import abstractmethod, abstractproperty
 from base64 import b64encode
 try:
@@ -141,8 +142,9 @@ class SessionTokenAuth(AuthBase):
       if os.path.exists(self._token_file):
         with open(self._token_file, 'r') as f:
           self._token = f.read().strip()
-    except Exception:
-      pass
+    except Exception as e:
+      print('Warning: Failed to load session token from %s: %s' % (self._token_file, e),
+            file=sys.stderr)
 
   def __call__(self, request):
     if self._token:
@@ -183,26 +185,68 @@ class OidcDeviceAuth(AuthBase):
       try:
         with open(self._token_file, 'r') as f:
           data = json.load(f)
-          # Basic validation
-          if 'access_token' in data:
-            self._access_token = data['access_token']
-      except Exception:
-        pass
+        if 'access_token' not in data:
+          print('Warning: OIDC token file missing access_token: %s' % self._token_file,
+                file=sys.stderr)
+          return
+        expires_at = data.get('expires_at', 0)
+        if time.time() >= expires_at - 60 and data.get('refresh_token'):
+          data = self._refresh_token(data) or data
+        if 'access_token' in data:
+          self._access_token = data['access_token']
+      except Exception as e:
+        print('Warning: Failed to load OIDC token from %s: %s' % (self._token_file, e),
+              file=sys.stderr)
 
   def _save_token(self, data):
     try:
+      os.makedirs(os.path.dirname(self._token_file), mode=0o700, exist_ok=True)
       with open(self._token_file, 'w') as f:
         json.dump(data, f)
+      os.chmod(self._token_file, 0o600)
     except Exception as e:
-      print('Warning: Failed to save OIDC token: %s' % e)
+      print('Warning: Failed to save OIDC token: %s' % e, file=sys.stderr)
+
+  def _refresh_token(self, session_data):
+    token_endpoint = session_data.get('token_endpoint')
+    client_id = session_data.get('client_id') or self._client_id
+    refresh_token = session_data.get('refresh_token')
+    if not token_endpoint or not client_id or not refresh_token:
+      return None
+    try:
+      resp = requests.post(
+        token_endpoint,
+        data={
+          'grant_type': 'refresh_token',
+          'client_id': client_id,
+          'refresh_token': refresh_token,
+        },
+        timeout=10,
+      )
+      new_data = resp.json()
+      if 'access_token' not in new_data:
+        print('Warning: Token refresh response missing access_token', file=sys.stderr)
+        return None
+      if 'refresh_token' not in new_data:
+        new_data['refresh_token'] = refresh_token
+      new_data.setdefault('token_endpoint', token_endpoint)
+      new_data.setdefault('client_id', client_id)
+      new_data['expires_at'] = int(time.time()) + new_data.get('expires_in', 3600)
+      self._save_token(new_data)
+      return new_data
+    except Exception as e:
+      print('Warning: Token refresh failed: %s' % e, file=sys.stderr)
+      return None
 
   def _get_openid_config(self):
     if not self._issuer:
       return None
     try:
-      resp = requests.get(f"{self._issuer}/.well-known/openid-configuration", timeout=5)
+      resp = requests.get(
+        self._issuer.rstrip('/') + '/.well-known/openid-configuration', timeout=5)
       return resp.json()
-    except Exception:
+    except Exception as e:
+      print('Warning: Failed to fetch OIDC discovery document: %s' % e, file=sys.stderr)
       return None
 
   def authenticate_via_device_flow(self):
@@ -237,8 +281,10 @@ class OidcDeviceAuth(AuthBase):
     token_endpoint = config['token_endpoint']
     interval = resp.get('interval', 5)
     device_code = resp['device_code']
+    expires_in = resp.get('expires_in', 300)
+    deadline = time.time() + expires_in
 
-    while True:
+    while time.time() < deadline:
       time.sleep(interval)
       print(".", end='', flush=True)
       try:
@@ -249,20 +295,31 @@ class OidcDeviceAuth(AuthBase):
             'client_id': self._client_id,
             'device_code': device_code
           },
-          timeout=5
+          timeout=10
         )
         data = token_resp.json()
-        
+
         if token_resp.status_code == 200:
           self._access_token = data['access_token']
+          data.setdefault('token_endpoint', token_endpoint)
+          data.setdefault('client_id', self._client_id)
+          data['expires_at'] = int(time.time()) + data.get('expires_in', 3600)
           self._save_token(data)
           print("\nAuthentication successful!")
           return True
-        elif data.get('error') != 'authorization_pending':
-          print("\nAuthentication failed: %s" % data.get('error_description', data.get('error')))
+        error = data.get('error', '')
+        if error == 'authorization_pending':
+          continue
+        elif error == 'slow_down':
+          interval = min(interval + 5, 60)
+        else:
+          print("\nAuthentication failed: %s" % data.get('error_description', error))
           return False
-      except Exception:
-        pass
+      except Exception as e:
+        print('\nWarning: polling error: %s' % e, file=sys.stderr)
+
+    print("\nDevice authorization timed out.")
+    return False
 
   def __call__(self, request):
     # If we don't have a token, and we have OIDC configured, try to get one.
@@ -311,15 +368,15 @@ class ProxySessionAuth(AuthBase):
         with open(self._session_file, 'r') as f:
           line = f.read().strip()
           if '=' in line:
-            # Handle multiple cookies if needed, or just one
             for cookie in line.split(';'):
               if '=' in cookie:
                 name, value = cookie.strip().split('=', 1)
                 self._cookies[name] = value
           else:
             self._cookies['_oauth2_proxy'] = line
-      except Exception:
-        pass
+      except Exception as e:
+        print('Warning: Failed to load proxy session from %s: %s' % (self._session_file, e),
+              file=sys.stderr)
 
   def __call__(self, request):
     if self._cookies:

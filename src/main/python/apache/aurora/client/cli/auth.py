@@ -68,6 +68,50 @@ def _is_browser_available():
     return bool(os.environ.get('DISPLAY') or os.environ.get('WAYLAND_DISPLAY'))
 
 
+def _refresh_tokens(token_endpoint, client_id, refresh_token):
+    data = urllib.parse.urlencode({
+        'grant_type': 'refresh_token',
+        'client_id': client_id,
+        'refresh_token': refresh_token,
+    }).encode()
+    req = urllib.request.Request(token_endpoint, data=data, method='POST')
+    req.add_header('Content-Type', 'application/x-www-form-urlencoded')
+    with urllib.request.urlopen(req, timeout=_TOKEN_TIMEOUT) as resp:
+        return json.loads(resp.read())
+
+
+def get_valid_session(cluster_name):
+    """Return a valid session for cluster_name, refreshing the token if expired.
+
+    Returns the session dict or None if no valid session is available.
+    """
+    session = load_session(cluster_name)
+    if not session:
+        return None
+
+    expires_at = session.get('expires_at', 0)
+    if time.time() < expires_at - 60:
+        return session
+
+    refresh_token = session.get('refresh_token')
+    token_endpoint = session.get('token_endpoint')
+    client_id = session.get('client_id', 'aurora-cli')
+
+    if not refresh_token or not token_endpoint:
+        return None
+
+    try:
+        new_tokens = _refresh_tokens(token_endpoint, client_id, refresh_token)
+        if 'refresh_token' not in new_tokens:
+            new_tokens['refresh_token'] = refresh_token
+        _persist_tokens(cluster_name, new_tokens,
+                        token_endpoint=token_endpoint, client_id=client_id)
+        return load_session(cluster_name)
+    except Exception as e:
+        print(f'Warning: Token refresh failed: {e}', file=sys.stderr)
+        return None
+
+
 def _exchange_code(token_endpoint, client_id, code, redirect_uri, code_verifier):
     data = urllib.parse.urlencode({
         'grant_type': 'authorization_code',
@@ -110,7 +154,7 @@ def _poll_device_token(token_endpoint, client_id, device_code, interval, expires
             if error == 'authorization_pending':
                 continue
             elif error == 'slow_down':
-                wait += 5
+                wait = min(wait + 5, 60)
             elif error == 'expired_token':
                 raise RuntimeError('Device code expired. Please try again.')
             else:
@@ -199,7 +243,7 @@ def _browser_auth(discovery, client_id, cluster_name):
         print(f'Token exchange failed: {e}')
         return 1
 
-    _persist_tokens(cluster_name, tokens)
+    _persist_tokens(cluster_name, tokens, token_endpoint=token_endpoint, client_id=client_id)
     return 0
 
 
@@ -254,15 +298,19 @@ def _device_auth(discovery, client_id, cluster_name):
         print(f'Authentication failed: {e}')
         return 1
 
-    _persist_tokens(cluster_name, tokens)
+    _persist_tokens(cluster_name, tokens, token_endpoint=token_endpoint, client_id=client_id)
     return 0
 
 
-def _persist_tokens(cluster_name, tokens):
+def _persist_tokens(cluster_name, tokens, token_endpoint=None, client_id=None):
     if 'access_token' not in tokens:
         raise ValueError('Token response missing access_token')
     tokens['cluster'] = cluster_name
     tokens['expires_at'] = int(time.time()) + tokens.get('expires_in', 3600)
+    if token_endpoint:
+        tokens['token_endpoint'] = token_endpoint
+    if client_id:
+        tokens['client_id'] = client_id
     save_session(cluster_name, tokens)
     print(f'Authenticated. Session saved to {_session_file(cluster_name)}')
 

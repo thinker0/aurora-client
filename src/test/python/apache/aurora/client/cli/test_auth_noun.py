@@ -78,6 +78,8 @@ from apache.aurora.client.cli.auth import (  # noqa: E402
     _pkce_pair,
     _persist_tokens,
     _poll_device_token,
+    _refresh_tokens,
+    get_valid_session,
     load_session,
     save_session,
 )
@@ -183,6 +185,18 @@ class TestPersistTokens(unittest.TestCase):
         self.assertEqual(result['expires_at'], 4600)
         self.assertEqual(result['cluster'], 'mycluster')
 
+    def test_stores_token_endpoint_and_client_id(self):
+        with patch('apache.aurora.client.cli.auth.SESSION_DIR', self.tmpdir):
+            _persist_tokens(
+                'mycluster',
+                {'access_token': 'tok'},
+                token_endpoint='https://auth.example.com/token',
+                client_id='aurora-cli',
+            )
+            result = load_session('mycluster')
+        self.assertEqual(result['token_endpoint'], 'https://auth.example.com/token')
+        self.assertEqual(result['client_id'], 'aurora-cli')
+
     def test_missing_access_token_raises(self):
         with patch('apache.aurora.client.cli.auth.SESSION_DIR', self.tmpdir):
             with self.assertRaises(ValueError):
@@ -247,6 +261,25 @@ class TestPollDeviceToken(unittest.TestCase):
         with self.assertRaises(RuntimeError) as ctx:
             _poll_device_token('http://token', 'client', 'devcode', 5, 300)
         self.assertIn('timed out', str(ctx.exception).lower())
+
+    @patch('apache.aurora.client.cli.auth.time.sleep')
+    @patch('apache.aurora.client.cli.auth.time.time')
+    @patch('urllib.request.urlopen')
+    def test_slow_down_caps_at_60(self, mock_urlopen, mock_time, mock_sleep):
+        mock_time.side_effect = [0, 1, 2, 3]
+        waits = []
+
+        def side_effect(*a, **kw):
+            # first two calls: slow_down; third: success
+            if len(waits) < 2:
+                raise self._http_error({'error': 'slow_down'})
+            return self._mock_response({'access_token': 'tok'})
+
+        mock_urlopen.side_effect = side_effect
+        mock_sleep.side_effect = lambda w: waits.append(w)
+        _poll_device_token('http://token', 'client', 'devcode', 55, 300)
+        # After two slow_down bumps: 55+5=60, then min(60+5,60)=60
+        self.assertTrue(all(w <= 60 for w in waits))
 
     @patch('apache.aurora.client.cli.auth.time.sleep')
     @patch('apache.aurora.client.cli.auth.time.time')
@@ -331,6 +364,77 @@ class TestLoginVerbExecute(unittest.TestCase):
         mock_disc.assert_called_once_with(
             'https://auth.example.com/.well-known/openid-configuration'
         )
+
+
+class TestGetValidSession(unittest.TestCase):
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+
+    def _save(self, data):
+        with patch('apache.aurora.client.cli.auth.SESSION_DIR', self.tmpdir):
+            save_session('c', data)
+
+    def test_returns_none_when_no_session(self):
+        with patch('apache.aurora.client.cli.auth.SESSION_DIR', self.tmpdir):
+            self.assertIsNone(get_valid_session('c'))
+
+    def test_returns_session_when_not_expired(self):
+        self._save({'access_token': 'tok', 'expires_at': time.time() + 3600})
+        with patch('apache.aurora.client.cli.auth.SESSION_DIR', self.tmpdir):
+            result = get_valid_session('c')
+        self.assertEqual(result['access_token'], 'tok')
+
+    def test_returns_none_when_expired_no_refresh_token(self):
+        self._save({'access_token': 'old', 'expires_at': 1})
+        with patch('apache.aurora.client.cli.auth.SESSION_DIR', self.tmpdir):
+            self.assertIsNone(get_valid_session('c'))
+
+    @patch('apache.aurora.client.cli.auth._refresh_tokens')
+    def test_refreshes_when_expired(self, mock_refresh):
+        self._save({
+            'access_token': 'old',
+            'expires_at': 1,
+            'refresh_token': 'reftok',
+            'token_endpoint': 'https://auth.example.com/token',
+            'client_id': 'aurora-cli',
+        })
+        mock_refresh.return_value = {
+            'access_token': 'new',
+            'expires_in': 3600,
+            'refresh_token': 'reftok',
+        }
+        with patch('apache.aurora.client.cli.auth.SESSION_DIR', self.tmpdir):
+            result = get_valid_session('c')
+        self.assertEqual(result['access_token'], 'new')
+        mock_refresh.assert_called_once_with(
+            'https://auth.example.com/token', 'aurora-cli', 'reftok'
+        )
+
+    @patch('apache.aurora.client.cli.auth._refresh_tokens', side_effect=Exception('network'))
+    def test_returns_none_on_refresh_failure(self, _mock):
+        self._save({
+            'access_token': 'old',
+            'expires_at': 1,
+            'refresh_token': 'reftok',
+            'token_endpoint': 'https://auth.example.com/token',
+            'client_id': 'aurora-cli',
+        })
+        with patch('apache.aurora.client.cli.auth.SESSION_DIR', self.tmpdir):
+            self.assertIsNone(get_valid_session('c'))
+
+    @patch('apache.aurora.client.cli.auth._refresh_tokens')
+    def test_preserves_refresh_token_if_not_in_response(self, mock_refresh):
+        self._save({
+            'access_token': 'old',
+            'expires_at': 1,
+            'refresh_token': 'original_ref',
+            'token_endpoint': 'https://auth.example.com/token',
+            'client_id': 'aurora-cli',
+        })
+        mock_refresh.return_value = {'access_token': 'new', 'expires_in': 3600}
+        with patch('apache.aurora.client.cli.auth.SESSION_DIR', self.tmpdir):
+            result = get_valid_session('c')
+        self.assertEqual(result['refresh_token'], 'original_ref')
 
 
 class TestAuthNoun(unittest.TestCase):
