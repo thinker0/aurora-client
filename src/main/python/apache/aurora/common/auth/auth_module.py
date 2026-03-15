@@ -11,7 +11,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import sys
 from abc import abstractmethod
 from base64 import b64encode
 try:
@@ -22,6 +21,7 @@ from requests.compat import urlparse
 
 from requests.auth import AuthBase
 from requests.utils import to_native_string
+from twitter.common import log
 from twitter.common.lang import Interface
 
 
@@ -145,8 +145,7 @@ class SessionTokenAuth(AuthBase):
         with open(self._token_file, 'r') as f:
           self._token = f.read().strip()
     except (OSError, UnicodeDecodeError) as e:
-      print('Warning: Failed to load session token from %s: %s' % (self._token_file, e),
-            file=sys.stderr)
+      log.warning('Failed to load session token from %s: %s', self._token_file, e)
 
   def __call__(self, request):
     if self._token:
@@ -188,8 +187,7 @@ class OidcDeviceAuth(AuthBase):
         with open(self._token_file, 'r') as f:
           data = json.load(f)
         if 'access_token' not in data:
-          print('Warning: OIDC token file missing access_token: %s' % self._token_file,
-                file=sys.stderr)
+          log.warning('OIDC token file missing access_token: %s', self._token_file)
           return
         expires_at = data.get('expires_at', 0)
         if time.time() >= expires_at - 60 and data.get('refresh_token'):
@@ -197,8 +195,7 @@ class OidcDeviceAuth(AuthBase):
         if 'access_token' in data:
           self._access_token = data['access_token']
       except (OSError, UnicodeDecodeError, json.JSONDecodeError) as e:
-        print('Warning: Failed to load OIDC token from %s: %s' % (self._token_file, e),
-              file=sys.stderr)
+        log.warning('Failed to load OIDC token from %s: %s', self._token_file, e)
 
   def _save_token(self, data):
     try:
@@ -207,7 +204,7 @@ class OidcDeviceAuth(AuthBase):
       with os.fdopen(fd, 'w') as f:
         json.dump(data, f)
     except OSError as e:
-      print('Warning: Failed to save OIDC token: %s' % e, file=sys.stderr)
+      log.warning('Failed to save OIDC token: %s', e)
 
   def _refresh_token(self, session_data):
     token_endpoint = session_data.get('token_endpoint')
@@ -227,7 +224,7 @@ class OidcDeviceAuth(AuthBase):
       )
       new_data = resp.json()
       if 'access_token' not in new_data:
-        print('Warning: Token refresh response missing access_token', file=sys.stderr)
+        log.warning('Token refresh response missing access_token')
         return None
       if 'refresh_token' not in new_data:
         new_data['refresh_token'] = refresh_token
@@ -237,7 +234,7 @@ class OidcDeviceAuth(AuthBase):
       self._save_token(new_data)
       return new_data
     except requests.RequestException as e:
-      print('Warning: Token refresh failed: %s' % e, file=sys.stderr)
+      log.warning('Token refresh failed: %s', e)
       return None
 
   def _get_openid_config(self):
@@ -248,17 +245,17 @@ class OidcDeviceAuth(AuthBase):
         self._issuer.rstrip('/') + '/.well-known/openid-configuration', timeout=5)
       return resp.json()
     except requests.RequestException as e:
-      print('Warning: Failed to fetch OIDC discovery document: %s' % e, file=sys.stderr)
+      log.warning('Failed to fetch OIDC discovery document: %s', e)
       return None
 
   def authenticate_via_device_flow(self):
     if not self._issuer or not self._client_id:
-      print("AURORA_OIDC_ISSUER and AURORA_OIDC_CLIENT_ID environment variables must be set for OIDC Device Flow.")
+      log.error('AURORA_OIDC_ISSUER and AURORA_OIDC_CLIENT_ID environment variables must be set for OIDC Device Flow.')
       return False
 
     config = self._get_openid_config()
     if not config or 'device_authorization_endpoint' not in config:
-      print("OIDC Provider does not support Device Authorization Flow.")
+      log.error('OIDC Provider does not support Device Authorization Flow.')
       return False
 
     # 1. Request device code
@@ -269,7 +266,7 @@ class OidcDeviceAuth(AuthBase):
         timeout=5
       ).json()
     except requests.RequestException as e:
-      print("Failed to initiate device flow: %s" % e, file=sys.stderr)
+      log.error('Failed to initiate device flow: %s', e)
       return False
 
     print("\n=======================================================")
@@ -318,7 +315,7 @@ class OidcDeviceAuth(AuthBase):
           print("\nAuthentication failed: %s" % data.get('error_description', error))
           return False
       except Exception as e:
-        print('\nWarning: polling error: %s' % e, file=sys.stderr)
+        log.warning('Polling error: %s', e)
 
     print("\nDevice authorization timed out.")
     return False
@@ -327,10 +324,7 @@ class OidcDeviceAuth(AuthBase):
     if self._access_token:
       request.headers['Authorization'] = 'Bearer %s' % self._access_token
     else:
-      print(
-        'Warning: No OIDC token available. Run "aurora auth login <cluster>" to authenticate.',
-        file=sys.stderr,
-      )
+      log.warning('No OIDC token available. Run "aurora auth login <cluster>" to authenticate.')
     return request
 
 class OidcDeviceAuthModule(AuthModule):
@@ -378,8 +372,7 @@ class ProxySessionAuth(AuthBase):
           else:
             self._cookies['_oauth2_proxy'] = line
       except (OSError, UnicodeDecodeError) as e:
-        print('Warning: Failed to load proxy session from %s: %s' % (self._session_file, e),
-              file=sys.stderr)
+        log.warning('Failed to load proxy session from %s: %s', self._session_file, e)
 
   def __call__(self, request):
     if self._cookies:
