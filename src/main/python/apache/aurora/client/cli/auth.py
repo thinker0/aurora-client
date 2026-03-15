@@ -5,7 +5,6 @@ import http.server
 import json
 import os
 import secrets
-import socket
 import socketserver
 import sys
 import threading
@@ -23,6 +22,10 @@ from apache.aurora.common.clusters import CLUSTERS
 
 
 SESSION_DIR = os.path.expanduser('~/.aurora')
+
+_DISCOVERY_TIMEOUT = 10
+_TOKEN_TIMEOUT = 15
+_BROWSER_TIMEOUT = 300
 
 
 def _session_file(cluster_name):
@@ -46,7 +49,7 @@ def load_session(cluster_name):
 
 
 def _oidc_discovery(discovery_url):
-    with urllib.request.urlopen(discovery_url, timeout=10) as resp:
+    with urllib.request.urlopen(discovery_url, timeout=_DISCOVERY_TIMEOUT) as resp:
         return json.loads(resp.read())
 
 
@@ -55,12 +58,6 @@ def _pkce_pair():
     digest = hashlib.sha256(verifier.encode()).digest()
     challenge = base64.urlsafe_b64encode(digest).rstrip(b'=').decode()
     return verifier, challenge
-
-
-def _free_port():
-    with socket.socket() as s:
-        s.bind(('127.0.0.1', 0))
-        return s.getsockname()[1]
 
 
 def _is_browser_available():
@@ -81,7 +78,7 @@ def _exchange_code(token_endpoint, client_id, code, redirect_uri, code_verifier)
     }).encode()
     req = urllib.request.Request(token_endpoint, data=data, method='POST')
     req.add_header('Content-Type', 'application/x-www-form-urlencoded')
-    with urllib.request.urlopen(req, timeout=15) as resp:
+    with urllib.request.urlopen(req, timeout=_TOKEN_TIMEOUT) as resp:
         return json.loads(resp.read())
 
 
@@ -102,10 +99,13 @@ def _poll_device_token(token_endpoint, client_id, device_code, interval, expires
         )
         req.add_header('Content-Type', 'application/x-www-form-urlencoded')
         try:
-            with urllib.request.urlopen(req, timeout=15) as resp:
+            with urllib.request.urlopen(req, timeout=_TOKEN_TIMEOUT) as resp:
                 return json.loads(resp.read())
         except urllib.error.HTTPError as e:
-            body = json.loads(e.read())
+            try:
+                body = json.loads(e.read().decode('utf-8'))
+            except (json.JSONDecodeError, UnicodeDecodeError):
+                raise RuntimeError(f'Token endpoint returned HTTP {e.code}')
             error = body.get('error', '')
             if error == 'authorization_pending':
                 continue
@@ -126,22 +126,7 @@ def _browser_auth(discovery, client_id, cluster_name):
     authorization_endpoint = discovery['authorization_endpoint']
     token_endpoint = discovery['token_endpoint']
 
-    port = _free_port()
-    redirect_uri = f'http://localhost:{port}/callback'
     verifier, challenge = _pkce_pair()
-
-    auth_url = '{}?{}'.format(
-        authorization_endpoint,
-        urllib.parse.urlencode({
-            'response_type': 'code',
-            'client_id': client_id,
-            'redirect_uri': redirect_uri,
-            'scope': 'openid email profile offline_access',
-            'code_challenge': challenge,
-            'code_challenge_method': 'S256',
-        }),
-    )
-
     auth_code = [None]
     auth_error = [None]
     stop_event = threading.Event()
@@ -170,8 +155,26 @@ def _browser_auth(discovery, client_id, cluster_name):
         def log_message(self, fmt, *args):
             pass
 
-    server = socketserver.TCPServer(('127.0.0.1', port), _CallbackHandler)
+    # Bind to port 0 atomically to avoid TOCTOU race between _free_port() and server start
+    server = socketserver.TCPServer(('127.0.0.1', 0), _CallbackHandler, bind_and_activate=False)
     server.allow_reuse_address = True
+    server.server_bind()
+    server.server_activate()
+    port = server.socket.getsockname()[1]
+
+    redirect_uri = f'http://localhost:{port}/callback'
+    auth_url = '{}?{}'.format(
+        authorization_endpoint,
+        urllib.parse.urlencode({
+            'response_type': 'code',
+            'client_id': client_id,
+            'redirect_uri': redirect_uri,
+            'scope': 'openid email profile offline_access',
+            'code_challenge': challenge,
+            'code_challenge_method': 'S256',
+        }),
+    )
+
     t = threading.Thread(target=server.serve_forever, daemon=True)
     t.start()
 
@@ -179,12 +182,12 @@ def _browser_auth(discovery, client_id, cluster_name):
     webbrowser.open(auth_url)
     print('Waiting for authentication (timeout 5 minutes)...')
 
-    if not stop_event.wait(timeout=300):
-        server.shutdown()
+    timed_out = not stop_event.wait(timeout=_BROWSER_TIMEOUT)
+    server.shutdown()
+
+    if timed_out:
         print('Authentication timed out.')
         return 1
-
-    server.shutdown()
 
     if not auth_code[0]:
         print(f'Authentication failed: {auth_error[0]}')
@@ -222,7 +225,7 @@ def _device_auth(discovery, client_id, cluster_name):
         method='POST',
     )
     req.add_header('Content-Type', 'application/x-www-form-urlencoded')
-    with urllib.request.urlopen(req, timeout=15) as resp:
+    with urllib.request.urlopen(req, timeout=_TOKEN_TIMEOUT) as resp:
         dr = json.loads(resp.read())
 
     user_code = dr['user_code']
@@ -256,6 +259,8 @@ def _device_auth(discovery, client_id, cluster_name):
 
 
 def _persist_tokens(cluster_name, tokens):
+    if 'access_token' not in tokens:
+        raise ValueError('Token response missing access_token')
     tokens['cluster'] = cluster_name
     tokens['expires_at'] = int(time.time()) + tokens.get('expires_in', 3600)
     save_session(cluster_name, tokens)
