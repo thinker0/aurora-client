@@ -70,7 +70,7 @@ jobs = [HELLO_WORLD, OTHERJOB]
 """
 
 MESOS_CONFIG_BYTES = MESOS_CONFIG.encode()
-MESOS_CONFIG_MD5 = hashlib.md5(MESOS_CONFIG_BYTES).hexdigest()
+MESOS_CONFIG_MD5 = hashlib.sha256(MESOS_CONFIG_BYTES).hexdigest()
 
 
 def test_enoent():
@@ -106,7 +106,7 @@ def test_load_json_single():
 
 def test_gen_content_key():
   content = "one two three"
-  expected_md5 = hashlib.md5(content.encode()).hexdigest()
+  expected_md5 = hashlib.sha256(content.encode()).hexdigest()
 
   assert AuroraConfigLoader.gen_content_key(1) is None, (
     "Non filetype results in None")
@@ -140,7 +140,7 @@ def test_load_json_memoized():
   env = AuroraConfigLoader.load(BytesIO(MESOS_CONFIG_MULTI.encode()))
   jobs = env['jobs']
   content = json.dumps(jobs[0].get())
-  expected_md5 = hashlib.md5(content.encode()).hexdigest()
+  expected_md5 = hashlib.sha256(content.encode()).hexdigest()
   with temporary_dir() as d:
     filename = os.path.join(d, 'config.json')
     with open(filename, 'w+') as fp:

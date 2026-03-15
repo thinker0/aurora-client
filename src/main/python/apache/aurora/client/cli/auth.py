@@ -35,9 +35,9 @@ def _session_file(cluster_name):
 def save_session(cluster_name, data):
     os.makedirs(SESSION_DIR, mode=0o700, exist_ok=True)
     path = _session_file(cluster_name)
-    with open(path, 'w') as f:
+    fd = os.open(path, os.O_CREAT | os.O_WRONLY | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, 'w') as f:
         json.dump(data, f)
-    os.chmod(path, 0o600)
 
 
 def load_session(cluster_name):
@@ -48,7 +48,16 @@ def load_session(cluster_name):
         return json.load(f)
 
 
+def _validate_https_url(url, label='URL'):
+    parsed = urlparse(url)
+    if parsed.scheme != 'https':
+        raise ValueError(
+            f'{label} must use HTTPS (got {parsed.scheme!r}): {url}'
+        )
+
+
 def _oidc_discovery(discovery_url):
+    _validate_https_url(discovery_url, 'OIDC discovery URL')
     with urllib.request.urlopen(discovery_url, timeout=_DISCOVERY_TIMEOUT) as resp:
         return json.loads(resp.read())
 
@@ -107,6 +116,16 @@ def get_valid_session(cluster_name):
         _persist_tokens(cluster_name, new_tokens,
                         token_endpoint=token_endpoint, client_id=client_id)
         return load_session(cluster_name)
+    except urllib.error.HTTPError as e:
+        if e.code in (401, 403):
+            print(
+                f'Warning: Token refresh unauthorized (HTTP {e.code}). '
+                'Please re-authenticate with: aurora auth login',
+                file=sys.stderr,
+            )
+        else:
+            print(f'Warning: Token refresh failed with HTTP {e.code}', file=sys.stderr)
+        return None
     except Exception as e:
         print(f'Warning: Token refresh failed: {e}', file=sys.stderr)
         return None
@@ -169,6 +188,8 @@ def _poll_device_token(token_endpoint, client_id, device_code, interval, expires
 def _browser_auth(discovery, client_id, cluster_name):
     authorization_endpoint = discovery['authorization_endpoint']
     token_endpoint = discovery['token_endpoint']
+    _validate_https_url(authorization_endpoint, 'authorization_endpoint')
+    _validate_https_url(token_endpoint, 'token_endpoint')
 
     verifier, challenge = _pkce_pair()
     auth_code = [None]
@@ -259,6 +280,8 @@ def _device_auth(discovery, client_id, cluster_name):
         return 1
 
     token_endpoint = discovery['token_endpoint']
+    _validate_https_url(device_endpoint, 'device_authorization_endpoint')
+    _validate_https_url(token_endpoint, 'token_endpoint')
 
     req = urllib.request.Request(
         device_endpoint,

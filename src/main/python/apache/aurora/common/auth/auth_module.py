@@ -12,7 +12,7 @@
 # limitations under the License.
 #
 import sys
-from abc import abstractmethod, abstractproperty
+from abc import abstractmethod
 from base64 import b64encode
 try:
   from netrc import netrc
@@ -26,7 +26,8 @@ from twitter.common.lang import Interface
 
 
 class AuthModule(Interface):
-  @abstractproperty
+  @property
+  @abstractmethod
   def mechanism(self):
     """Return the mechanism provided by this AuthModule.
     ":rtype: string
@@ -38,7 +39,8 @@ class AuthModule(Interface):
     :rtype: requests.auth.AuthBase.
     """
 
-  @abstractproperty
+  @property
+  @abstractmethod
   def failed_auth_message(self):
     """Default help message to log on failed auth attempt.
     :rtype: string
@@ -142,7 +144,7 @@ class SessionTokenAuth(AuthBase):
       if os.path.exists(self._token_file):
         with open(self._token_file, 'r') as f:
           self._token = f.read().strip()
-    except Exception as e:
+    except (OSError, UnicodeDecodeError) as e:
       print('Warning: Failed to load session token from %s: %s' % (self._token_file, e),
             file=sys.stderr)
 
@@ -194,17 +196,17 @@ class OidcDeviceAuth(AuthBase):
           data = self._refresh_token(data) or data
         if 'access_token' in data:
           self._access_token = data['access_token']
-      except Exception as e:
+      except (OSError, UnicodeDecodeError, json.JSONDecodeError) as e:
         print('Warning: Failed to load OIDC token from %s: %s' % (self._token_file, e),
               file=sys.stderr)
 
   def _save_token(self, data):
     try:
       os.makedirs(os.path.dirname(self._token_file), mode=0o700, exist_ok=True)
-      with open(self._token_file, 'w') as f:
+      fd = os.open(self._token_file, os.O_CREAT | os.O_WRONLY | os.O_TRUNC, 0o600)
+      with os.fdopen(fd, 'w') as f:
         json.dump(data, f)
-      os.chmod(self._token_file, 0o600)
-    except Exception as e:
+    except OSError as e:
       print('Warning: Failed to save OIDC token: %s' % e, file=sys.stderr)
 
   def _refresh_token(self, session_data):
@@ -234,7 +236,7 @@ class OidcDeviceAuth(AuthBase):
       new_data['expires_at'] = int(time.time()) + new_data.get('expires_in', 3600)
       self._save_token(new_data)
       return new_data
-    except Exception as e:
+    except requests.RequestException as e:
       print('Warning: Token refresh failed: %s' % e, file=sys.stderr)
       return None
 
@@ -245,7 +247,7 @@ class OidcDeviceAuth(AuthBase):
       resp = requests.get(
         self._issuer.rstrip('/') + '/.well-known/openid-configuration', timeout=5)
       return resp.json()
-    except Exception as e:
+    except requests.RequestException as e:
       print('Warning: Failed to fetch OIDC discovery document: %s' % e, file=sys.stderr)
       return None
 
@@ -266,8 +268,8 @@ class OidcDeviceAuth(AuthBase):
         data={'client_id': self._client_id, 'scope': 'openid profile email'},
         timeout=5
       ).json()
-    except Exception as e:
-      print("Failed to initiate device flow: %s" % e)
+    except requests.RequestException as e:
+      print("Failed to initiate device flow: %s" % e, file=sys.stderr)
       return False
 
     print("\n=======================================================")
@@ -322,12 +324,13 @@ class OidcDeviceAuth(AuthBase):
     return False
 
   def __call__(self, request):
-    # If we don't have a token, and we have OIDC configured, try to get one.
-    if not self._access_token and self._issuer and self._client_id:
-      self.authenticate_via_device_flow()
-
     if self._access_token:
       request.headers['Authorization'] = 'Bearer %s' % self._access_token
+    else:
+      print(
+        'Warning: No OIDC token available. Run "aurora auth login <cluster>" to authenticate.',
+        file=sys.stderr,
+      )
     return request
 
 class OidcDeviceAuthModule(AuthModule):
@@ -374,7 +377,7 @@ class ProxySessionAuth(AuthBase):
                 self._cookies[name] = value
           else:
             self._cookies['_oauth2_proxy'] = line
-      except Exception as e:
+      except (OSError, UnicodeDecodeError) as e:
         print('Warning: Failed to load proxy session from %s: %s' % (self._session_file, e),
               file=sys.stderr)
 
