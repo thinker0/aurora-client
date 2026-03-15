@@ -23,6 +23,12 @@ from apache.aurora.client.binding_helpers.docker_helper import DockerBindingHelp
 from apache.aurora.client.cli import CommandLine, ConfigurationPlugin
 from apache.aurora.client.cli.options import CommandOption
 from apache.aurora.common.auth.auth_module_manager import register_auth_module
+from apache.aurora.common.auth.auth_module import (
+    BasicAuthModule,
+    SessionTokenAuthModule,
+    OidcDeviceAuthModule,
+    ProxySessionAuthModule
+)
 
 
 class AuroraLogConfigurationPlugin(ConfigurationPlugin):
@@ -58,7 +64,7 @@ class AuroraLogConfigurationPlugin(ConfigurationPlugin):
     pass
 
   def _configure_lib_logging(self, loglevel):
-    """Sets logging level for "chatty" third party libs.
+    """Sets logging level for \"chatty\" third party libs.
 
     Some dependencies have low default logging threshold thus generating messages that could
     be confusing to users under normal conditions. To mitigate, we set the default loglevel
@@ -80,12 +86,15 @@ class AuroraAuthConfigurationPlugin(ConfigurationPlugin):
   def before_execution(self, context):
     try:
       from apache.aurora.kerberos.auth_module import KerberosAuthModule
-      from apache.aurora.common.auth.auth_module import BasicAuthModule
       register_auth_module(KerberosAuthModule())
-      register_auth_module(BasicAuthModule())
     except ImportError:
       # Use default auth implementation if kerberos is not available.
       pass
+    
+    register_auth_module(BasicAuthModule())
+    register_auth_module(SessionTokenAuthModule())
+    register_auth_module(OidcDeviceAuthModule())
+    register_auth_module(ProxySessionAuthModule())
 
   def after_execution(self, context, result_code):
     pass
@@ -139,7 +148,9 @@ class AuroraCommandLine(CommandLine):
     from apache.aurora.client.cli.task import Task
     self.register_noun(Task())
     from apache.aurora.client.cli.update import Update
+    from apache.aurora.client.cli.auth import Auth
     self.register_noun(Update())
+    self.register_noun(Auth())
 
 
 def proxy_main():

@@ -32,7 +32,7 @@ class AuthModule(Interface):
     """
 
   @abstractmethod
-  def auth(self):
+  def auth(self, cluster_name=None):
     """Authentication handler for the HTTP transport layer.
     :rtype: requests.auth.AuthBase.
     """
@@ -49,7 +49,7 @@ class InsecureAuthModule(AuthModule):
   def mechanism(self):
     return 'UNAUTHENTICATED'
 
-  def auth(self):
+  def auth(self, cluster_name=None):
     return None
 
   @property
@@ -109,7 +109,7 @@ class BasicAuthModule(AuthModule):
   def mechanism(self):
     return 'BASIC'
 
-  def auth(self):
+  def auth(self, cluster_name=None):
     return BasicAuth(
         username=self._username,
         password=self._password,
@@ -120,3 +120,228 @@ class BasicAuthModule(AuthModule):
     return ('Communication with Aurora scheduler requires HTTP Basic Authentication. '
             'Does your %s file contain valid credentials for the scheduler host?'
             % (self._netrc_file or '~/.netrc'))
+
+import os
+
+
+
+class SessionTokenAuth(AuthBase):
+  def __init__(self, token_file=None, cluster_name=None):
+    self._cluster = cluster_name
+    if token_file:
+      self._token_file = token_file
+    elif self._cluster:
+      self._token_file = os.path.expanduser(f'~/.aurora/token.{self._cluster}')
+    else:
+      self._token_file = os.path.expanduser('~/.aurora/token')
+
+    
+    self._token = None
+    try:
+      if os.path.exists(self._token_file):
+        with open(self._token_file, 'r') as f:
+          self._token = f.read().strip()
+    except Exception:
+      pass
+
+  def __call__(self, request):
+    if self._token:
+      request.headers['Authorization'] = 'Bearer %s' % self._token
+    return request
+
+
+
+class SessionTokenAuthModule(AuthModule):
+  def __init__(self, token_file=None):
+    self._token_file = token_file
+
+  @property
+  def mechanism(self):
+    return 'SESSION_TOKEN'
+
+  def auth(self, cluster_name=None):
+    return SessionTokenAuth(token_file=self._token_file, cluster_name=cluster_name)
+
+  @property
+  def failed_auth_message(self):
+    return 'Communication requires a valid session token. Please check ~/.aurora/token'
+
+import json
+import time
+import requests
+
+class OidcDeviceAuth(AuthBase):
+  def __init__(self, token_file=None):
+    self._token_file = token_file or os.path.expanduser('~/.aurora/oidc_token.json')
+    self._issuer = os.environ.get('AURORA_OIDC_ISSUER')
+    self._client_id = os.environ.get('AURORA_OIDC_CLIENT_ID')
+    self._access_token = None
+    self._load_token()
+
+  def _load_token(self):
+    if os.path.exists(self._token_file):
+      try:
+        with open(self._token_file, 'r') as f:
+          data = json.load(f)
+          # Basic validation
+          if 'access_token' in data:
+            self._access_token = data['access_token']
+      except Exception:
+        pass
+
+  def _save_token(self, data):
+    try:
+      with open(self._token_file, 'w') as f:
+        json.dump(data, f)
+    except Exception as e:
+      print('Warning: Failed to save OIDC token: %s' % e)
+
+  def _get_openid_config(self):
+    if not self._issuer:
+      return None
+    try:
+      resp = requests.get(f"{self._issuer}/.well-known/openid-configuration", timeout=5)
+      return resp.json()
+    except Exception:
+      return None
+
+  def authenticate_via_device_flow(self):
+    if not self._issuer or not self._client_id:
+      print("AURORA_OIDC_ISSUER and AURORA_OIDC_CLIENT_ID environment variables must be set for OIDC Device Flow.")
+      return False
+
+    config = self._get_openid_config()
+    if not config or 'device_authorization_endpoint' not in config:
+      print("OIDC Provider does not support Device Authorization Flow.")
+      return False
+
+    # 1. Request device code
+    try:
+      resp = requests.post(
+        config['device_authorization_endpoint'],
+        data={'client_id': self._client_id, 'scope': 'openid profile email'},
+        timeout=5
+      ).json()
+    except Exception as e:
+      print("Failed to initiate device flow: %s" % e)
+      return False
+
+    print("\n=======================================================")
+    print("To authenticate with Aurora, please visit:")
+    print("\n  %s\n" % resp.get('verification_uri_complete', resp.get('verification_uri')))
+    print("And enter the code: %s" % resp.get('user_code'))
+    print("=======================================================\n")
+    print("Waiting for authorization...", end='', flush=True)
+
+    # 2. Poll for token
+    token_endpoint = config['token_endpoint']
+    interval = resp.get('interval', 5)
+    device_code = resp['device_code']
+
+    while True:
+      time.sleep(interval)
+      print(".", end='', flush=True)
+      try:
+        token_resp = requests.post(
+          token_endpoint,
+          data={
+            'grant_type': 'urn:ietf:params:oauth:grant-type:device_code',
+            'client_id': self._client_id,
+            'device_code': device_code
+          },
+          timeout=5
+        )
+        data = token_resp.json()
+        
+        if token_resp.status_code == 200:
+          self._access_token = data['access_token']
+          self._save_token(data)
+          print("\nAuthentication successful!")
+          return True
+        elif data.get('error') != 'authorization_pending':
+          print("\nAuthentication failed: %s" % data.get('error_description', data.get('error')))
+          return False
+      except Exception:
+        pass
+
+  def __call__(self, request):
+    # If we don't have a token, and we have OIDC configured, try to get one.
+    if not self._access_token and self._issuer and self._client_id:
+      self.authenticate_via_device_flow()
+
+    if self._access_token:
+      request.headers['Authorization'] = 'Bearer %s' % self._access_token
+    return request
+
+class OidcDeviceAuthModule(AuthModule):
+  def __init__(self, token_file=None):
+    self._token_file = token_file
+
+  @property
+  def mechanism(self):
+    return 'OIDC_DEVICE'
+
+  def auth(self, cluster_name=None):
+    return OidcDeviceAuth(token_file=self._token_file)
+
+  @property
+  def failed_auth_message(self):
+    return ('Authentication failed. If using OIDC, ensure AURORA_OIDC_ISSUER and '
+            'AURORA_OIDC_CLIENT_ID are set, or your token is valid.')
+
+
+
+class ProxySessionAuth(AuthBase):
+  def __init__(self, session_file=None, cluster_name=None):
+    self._cluster = cluster_name
+    if session_file:
+      self._session_file = session_file
+    elif self._cluster:
+      self._session_file = os.path.expanduser(f'~/.aurora/session.{self._cluster}')
+    else:
+      self._session_file = os.path.expanduser('~/.aurora/session')
+    
+    self._cookies = {}
+    self._load_session()
+
+
+  def _load_session(self):
+    if os.path.exists(self._session_file):
+      try:
+        with open(self._session_file, 'r') as f:
+          line = f.read().strip()
+          if '=' in line:
+            # Handle multiple cookies if needed, or just one
+            for cookie in line.split(';'):
+              if '=' in cookie:
+                name, value = cookie.strip().split('=', 1)
+                self._cookies[name] = value
+          else:
+            self._cookies['_oauth2_proxy'] = line
+      except Exception:
+        pass
+
+  def __call__(self, request):
+    if self._cookies:
+      cookie_header = '; '.join([f'{k}={v}' for k, v in self._cookies.items()])
+      request.headers['Cookie'] = cookie_header
+    return request
+
+
+
+
+class ProxySessionAuthModule(AuthModule):
+  def __init__(self, session_file=None):
+    self._session_file = session_file
+
+  @property
+  def mechanism(self):
+    return 'PROXY_SESSION'
+
+  def auth(self, cluster_name=None):
+    return ProxySessionAuth(session_file=self._session_file, cluster_name=cluster_name)
+
+
+  @property
+  def failed_auth_message(self):
+    return 'Authentication failed. Please login via "aurora auth login"'

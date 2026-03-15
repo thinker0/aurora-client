@@ -79,12 +79,13 @@ class SchedulerClient(object):
     if cluster.zk:
       return ZookeeperSchedulerClient(cluster, port=cluster.zk_port, auth=auth_handler, **kwargs)
     elif cluster.scheduler_uri:
-      return DirectSchedulerClient(cluster.scheduler_uri, auth=auth_handler, **kwargs)
+      return DirectSchedulerClient(cluster, cluster.scheduler_uri, auth=auth_handler, **kwargs)
     else:
       raise ValueError('"cluster" does not specify zk or scheduler_uri')
 
-  def __init__(self, auth, user_agent, verbose=False, bypass_leader_redirect=False):
+  def __init__(self, auth, user_agent, verbose=False, bypass_leader_redirect=False, cluster=None):
     self._client = None
+    self._cluster = cluster
     self._auth_handler = auth
     self._user_agent = user_agent
     self._verbose = verbose
@@ -103,10 +104,17 @@ class SchedulerClient(object):
   def _connect(self):
     return None
 
+
   def _connect_scheduler(self, uri, clock=time):
+    cluster_name = None
+    if self._cluster:
+      # Cluster objects might not have a .name attribute directly, but act as a dict
+      cluster_name = getattr(self._cluster, 'name', self._cluster.get('name'))
+
     transport = TRequestsTransport(
         uri,
-        auth=self._auth_handler.auth(),
+        auth=self._auth_handler.auth(cluster_name=cluster_name),
+
         user_agent=self._user_agent,
         session_factory=functools.partial(
             _bypass_leader_redirect_session_factory,
@@ -153,7 +161,7 @@ class ZookeeperSchedulerClient(SchedulerClient):
     return zk, ServerSet(zk, cluster.scheduler_zk_path, **kw)
 
   def __init__(self, cluster, port=2181, verbose=False, _deadline=deadline, **kwargs):
-    SchedulerClient.__init__(self, verbose=verbose, **kwargs)
+    SchedulerClient.__init__(self, verbose=verbose, cluster=cluster, **kwargs)
     self._cluster = cluster
     self._zkport = port
     self._endpoint = None
@@ -223,8 +231,8 @@ class ZookeeperSchedulerClient(SchedulerClient):
 
 
 class DirectSchedulerClient(SchedulerClient):
-  def __init__(self, uri, verbose=True, **kwargs):
-    SchedulerClient.__init__(self, verbose=verbose, **kwargs)
+  def __init__(self, uri, verbose=True, cluster=None, **kwargs):
+    SchedulerClient.__init__(self, verbose=verbose, cluster=cluster, **kwargs)
     self._uri = uri
 
   def _connect(self):
