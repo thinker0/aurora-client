@@ -16,7 +16,7 @@
 
 import time
 
-from twitter.common import app
+from twitter.common import app, log
 from twitter.common.exceptions import ExceptionalThread
 from twitter.common.log.options import LogOptions
 from twitter.common.quantity import Amount, Time
@@ -155,6 +155,14 @@ app.add_option(
     dest='scheduler_web_url',
     help='Aurora Scheduler Web URL.')
 
+app.add_option(
+    '--verbose',
+    '-v',
+    dest='verbose',
+    default=False,
+    action='store_true',
+    help='Enable verbose debug logging (sets log level to DEBUG).')
+
 # Allow an interruptible sleep so that ^C works.
 def sleep_forever():
   while True:
@@ -180,6 +188,8 @@ def initialize(options):
 
 
 def main(_, options):
+  if options.verbose:
+    LogOptions.set_stderr_log_level('google:DEBUG')
   observer = initialize(options)
   observer.start()
   root_server = configure_server(observer, options)
@@ -193,7 +203,10 @@ def main(_, options):
   finally:
     bottle_observer = getattr(root_server, '_bottle_observer', None)
     if bottle_observer is not None:
-      bottle_observer.close()
+      try:
+        bottle_observer.close()
+      except Exception as e:
+        log.warning('Error closing observer on shutdown: %s', e)
 
 
 LogOptions.set_stderr_log_level('google:INFO')

@@ -215,9 +215,13 @@ Token validation results are cached for 5 minutes to avoid repeated calls to the
 
 ### Debug logging
 
-Run the observer with `--verbose` (or `-v`) to enable `log.debug` output for all
-authentication steps: Redis key lookups, cache hit/miss, token validation requests,
-HTTP response codes, and per-request auth decisions.
+Run the observer with `--verbose` (or `-v`) to set the log level to DEBUG and enable
+detailed output for all authentication steps: Redis key lookups, cache hit/miss,
+token validation requests, HTTP response codes, and per-request auth decisions.
+
+```
+thermos_observer --verbose --enable-authentication=oidc+basic ...
+```
 
 ---
 
