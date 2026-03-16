@@ -127,7 +127,15 @@ app.add_option(
     '--oidc-issuer',
     default=None,
     dest='oidc_issuer',
-    help='OIDC issuer URL (e.g. https://auth.example.com). Required for oidc and oidc+basic modes.')
+    help='OIDC issuer URL (e.g. https://auth.example.com). Required for oidc and oidc+basic modes '
+         'unless --oidc-userinfo-url is set.')
+
+app.add_option(
+    '--oidc-userinfo-url',
+    default=None,
+    dest='oidc_userinfo_url',
+    help='OIDC userinfo endpoint URL. When set, skips OIDC discovery and uses this URL directly. '
+         'Required for oauth2-proxy (e.g. https://oauth2proxy.example.com/oauth2/userinfo).')
 
 app.add_option(
     '--redis-cluster',
@@ -180,7 +188,12 @@ def main(_, options):
   server.daemon = True
   server.start()
 
-  sleep_forever()
+  try:
+    sleep_forever()
+  finally:
+    bottle_observer = getattr(root_server, '_bottle_observer', None)
+    if bottle_observer is not None:
+      bottle_observer.close()
 
 
 LogOptions.set_stderr_log_level('google:INFO')

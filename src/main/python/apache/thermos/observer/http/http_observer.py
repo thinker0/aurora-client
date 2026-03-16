@@ -56,9 +56,7 @@ class BasicAuth(Plugin):
     self._authRedis = None
 
   def setup(self, app):
-    log.debug('Setting up BasicAuthPlugin')
-    ''' Make sure that other installed plugins don't affect the same
-        keyword argument.'''
+    log.debug('BasicAuth: setting up plugin, realm=%s', self._realm)
     self._app = app
     for other in app.plugins:
       if not isinstance(other, BasicAuth): continue
@@ -66,48 +64,56 @@ class BasicAuth(Plugin):
         raise RuntimeError("Found another BasicAuth plugin with " \
                           "conflicting settings (non-unique keyword).")
     redis_url = self._options.redis_cluster
+    self._key_prefix = getattr(self._options, 'redis_key_prefix', '/aurora/thermos/user/')
+    log.debug('BasicAuth: connecting to Redis %s (key_prefix=%s)', redis_url, self._key_prefix)
     self._authRedis = RedisCluster.from_url(redis_url, readonly_mode=True)
-    log.debug('Starting redis client: %s' % redis_url)
-    self._key_prefix = self._options.redis_key_prefix
+    log.debug('BasicAuth: Redis client ready')
 
   def get_user(self, user=None):
     if user is None:
       return None
     if cache.__contains__(user):
-      # log.debug('cache hit: %s' % user)
-      val= cache.get(user, None)
+      val = cache.get(user, None)
+      log.debug('BasicAuth: cache hit for user=%s', user)
       return val
+    log.debug('BasicAuth: cache miss for user=%s, querying Redis key=%s', user, self._key_prefix + user)
     try:
       val = self._authRedis.get(self._key_prefix + '%s' % user)
-      if user is not None and val is not None:
+      if val is not None:
         if isinstance(val, bytes):
           val = val.decode('utf-8')
-        log.debug('redis get: %s=%s' % (user, val))
+        log.debug('BasicAuth: Redis returned hash for user=%s (len=%d)', user, len(val))
         return val
+      log.debug('BasicAuth: Redis returned None for user=%s (key not found)', user)
     except Exception as e:
-      log.error('redis get: %s' % e)
+      log.error('BasicAuth: Redis error for user=%s: %s', user, e)
     return None
 
   def set_cache(self, user, user_hash):
     if user is not None and user_hash is not None:
       cache[user] = 'sha256:%s' % user_hash
-      log.debug('cache set: %s=sha256:%s' % (user, user_hash))
+      log.debug('BasicAuth: cached credentials for user=%s', user)
 
   def apply(self, callback, context):
     def wrap(*args, **kwargs):
       user, password = request.auth or (None, None)
+      log.debug('BasicAuth: request user=%s has_password=%s path=%s',
+                user, password is not None, getattr(request, 'path', '?'))
       if user is not None and password is not None:
         user_hash = hashlib.sha256(('%s:%s' % (user, password)).encode('utf-8')).hexdigest()
-        if self.get_user(user) == 'sha256:%s' % user_hash:
-          log.debug('Success Authorization user=%s' % user)
+        stored = self.get_user(user)
+        if stored == 'sha256:%s' % user_hash:
+          log.debug('BasicAuth: accepted user=%s', user)
           self.set_cache(user, user_hash)
           return callback(*args, **kwargs)
-      log.debug('Authentication failed')
+        log.debug('BasicAuth: password mismatch for user=%s', user)
+      else:
+        log.debug('BasicAuth: missing credentials (user=%s)', user)
       raise HTTPResponse(status=401, headers={'WWW-Authenticate': 'Basic realm="%s"' % self._realm})
     return wrap
 
   def close(self):
-    log.debug('Closing BasicAuthPlugin')
+    log.debug('BasicAuth: closing Redis connection')
     self._authRedis.close()
 
 
@@ -118,33 +124,46 @@ class OidcBearerAuth(Plugin):
   def __init__(self, options, realm='Thermos Observer'):
     self._issuer = getattr(options, 'oidc_issuer', None)
     self._realm = realm
-    self._userinfo_url = None
+    # Direct userinfo URL takes precedence over OIDC discovery (supports oauth2-proxy)
+    _raw_url = getattr(options, 'oidc_userinfo_url', None)
+    self._userinfo_url = _raw_url if isinstance(_raw_url, str) and _raw_url else None
 
   def setup(self, app):
+    if self._userinfo_url:
+      log.debug('OidcBearerAuth: using pre-configured userinfo URL: %s', self._userinfo_url)
+      return
     if not self._issuer:
-      log.error('OidcBearerAuth: --oidc-issuer is required for oidc auth mode')
+      log.error('OidcBearerAuth: --oidc-issuer or --oidc-userinfo-url is required')
       return
     config_url = self._issuer.rstrip('/') + '/.well-known/openid-configuration'
+    log.debug('OidcBearerAuth: fetching OIDC discovery document: %s', config_url)
     try:
       resp = _requests.get(config_url, timeout=5)
+      log.debug('OidcBearerAuth: discovery response HTTP %s', resp.status_code)
       if resp.status_code != 200:
-        log.error('OidcBearerAuth: OIDC discovery returned HTTP %s', resp.status_code)
+        log.error('OidcBearerAuth: OIDC discovery returned HTTP %s from %s',
+                  resp.status_code, config_url)
         return
       self._userinfo_url = resp.json().get('userinfo_endpoint')
       if not self._userinfo_url:
-        log.error('OidcBearerAuth: OIDC discovery document missing userinfo_endpoint')
+        log.error('OidcBearerAuth: OIDC discovery document missing userinfo_endpoint (url=%s)',
+                  config_url)
       else:
-        log.debug('OidcBearerAuth: userinfo endpoint: %s', self._userinfo_url)
+        log.debug('OidcBearerAuth: discovered userinfo endpoint: %s', self._userinfo_url)
     except Exception as e:
-      log.error('OidcBearerAuth: failed to fetch OIDC discovery document: %s', e)
+      log.error('OidcBearerAuth: failed to fetch OIDC discovery document %s: %s', config_url, e)
 
   def _validate_token(self, token):
+    token_prefix = token[:8] + '...' if len(token) > 8 else '(short)'
     with _oidc_cache_lock:
       cached = _oidc_cache.get(token)
     if cached is not None:
+      log.debug('OidcBearerAuth: cache hit token=%s result=%s', token_prefix, cached)
       return cached
     if not self._userinfo_url:
+      log.debug('OidcBearerAuth: no userinfo URL configured, rejecting token=%s', token_prefix)
       return False
+    log.debug('OidcBearerAuth: validating token=%s via %s', token_prefix, self._userinfo_url)
     try:
       resp = _requests.get(
           self._userinfo_url,
@@ -152,6 +171,7 @@ class OidcBearerAuth(Plugin):
           timeout=5,
       )
       ok = resp.status_code == 200
+      log.debug('OidcBearerAuth: userinfo response HTTP %s for token=%s', resp.status_code, token_prefix)
       with _oidc_cache_lock:
         _oidc_cache[token] = ok
       if ok:
@@ -159,19 +179,35 @@ class OidcBearerAuth(Plugin):
           sub = resp.json().get('sub', '?')
         except (ValueError, KeyError):
           sub = '?'
-        log.debug('OidcBearerAuth: token valid, sub=%s', sub)
+        log.debug('OidcBearerAuth: token accepted, sub=%s token=%s', sub, token_prefix)
       else:
-        log.debug('OidcBearerAuth: token rejected, status=%s', resp.status_code)
+        log.debug('OidcBearerAuth: token rejected (HTTP %s) token=%s', resp.status_code, token_prefix)
       return ok
     except Exception as e:
-      log.warning('OidcBearerAuth: token validation error: %s', e)
+      log.warning('OidcBearerAuth: token validation error token=%s: %s', token_prefix, e)
       return False
 
   def apply(self, callback, context):
     def wrap(*args, **kwargs):
       auth_header = request.headers.get('Authorization', '')
-      if auth_header.startswith('Bearer ') and self._validate_token(auth_header[7:]):
+      path = getattr(request, 'path', '?')
+      if not auth_header:
+        log.debug('OidcBearerAuth: no Authorization header, path=%s', path)
+        raise HTTPResponse(
+            status=401,
+            headers={'WWW-Authenticate': 'Bearer realm="%s"' % self._realm},
+        )
+      if not auth_header.startswith('Bearer '):
+        log.debug('OidcBearerAuth: unsupported scheme "%s", path=%s',
+                  auth_header.split(' ')[0], path)
+        raise HTTPResponse(
+            status=401,
+            headers={'WWW-Authenticate': 'Bearer realm="%s"' % self._realm},
+        )
+      if self._validate_token(auth_header[7:]):
+        log.debug('OidcBearerAuth: request authorised, path=%s', path)
         return callback(*args, **kwargs)
+      log.debug('OidcBearerAuth: token invalid, path=%s', path)
       raise HTTPResponse(
           status=401,
           headers={'WWW-Authenticate': 'Bearer realm="%s"' % self._realm},
@@ -197,25 +233,38 @@ class CombinedAuth(Plugin):
 
   def apply(self, callback, context):
     def wrap(*args, **kwargs):
-      # 1) OIDC Bearer token — tried first
+      path = getattr(request, 'path', '?')
       auth_header = request.headers.get('Authorization', '')
+
+      # 1) OIDC Bearer token — tried first
       if auth_header.startswith('Bearer '):
+        log.debug('CombinedAuth: trying OIDC Bearer, path=%s', path)
         if self._oidc._validate_token(auth_header[7:]):
-          log.debug('CombinedAuth: OIDC Bearer accepted')
+          log.debug('CombinedAuth: OIDC Bearer accepted, path=%s', path)
           return callback(*args, **kwargs)
+        log.debug('CombinedAuth: OIDC Bearer failed, falling back to Basic, path=%s', path)
+      else:
+        log.debug('CombinedAuth: no Bearer header, trying Basic only, path=%s', path)
 
       # 2) HTTP Basic credentials
       user, password = request.auth or (None, None)
+      log.debug('CombinedAuth: Basic attempt user=%s has_password=%s, path=%s',
+                user, password is not None, path)
       if user and password:
         user_hash = hashlib.sha256(
             ('%s:%s' % (user, password)).encode('utf-8')
         ).hexdigest()
-        if self._basic.get_user(user) == 'sha256:%s' % user_hash:
-          log.debug('CombinedAuth: Basic accepted, user=%s', user)
+        stored = self._basic.get_user(user)
+        if stored == 'sha256:%s' % user_hash:
+          log.debug('CombinedAuth: Basic accepted, user=%s, path=%s', user, path)
           self._basic.set_cache(user, user_hash)
           return callback(*args, **kwargs)
+        log.debug('CombinedAuth: Basic failed for user=%s, path=%s', user, path)
+      else:
+        log.debug('CombinedAuth: no Basic credentials, path=%s', path)
 
       # 3) Neither succeeded
+      log.debug('CombinedAuth: all auth methods failed, returning 401, path=%s', path)
       raise HTTPResponse(
           status=401,
           headers={'WWW-Authenticate': 'Basic realm="%s"' % self._realm},
@@ -233,15 +282,23 @@ class AuthenticateEverything(object):
     self.plugins = []
     self._options = options
     mode = (getattr(options, 'enable_authentication', None) or '').lower()
+    log.debug('AuthenticateEverything: mode=%r', mode or '(none)')
     plugin = None
     if mode == 'basic':
+      log.debug('AuthenticateEverything: enabling HTTP Basic Auth (Redis-backed)')
       plugin = BasicAuth(self._options)
     elif mode == 'oidc':
+      log.debug('AuthenticateEverything: enabling OIDC Bearer Auth (issuer=%s, userinfo_url=%s)',
+                getattr(options, 'oidc_issuer', None),
+                getattr(options, 'oidc_userinfo_url', None))
       plugin = OidcBearerAuth(self._options)
     elif mode == 'oidc+basic':
+      log.debug('AuthenticateEverything: enabling Combined Auth (OIDC+Basic)')
       plugin = CombinedAuth(self._options)
+    else:
+      log.debug('AuthenticateEverything: authentication disabled')
     if plugin is not None:
-      log.debug('Installing auth plugin: %s', plugin.name)
+      log.debug('AuthenticateEverything: installing plugin=%s', plugin.name)
       bottle.install(plugin)
       self.plugins.append(plugin)
       log.debug('AuthenticateEverything: %d plugin(s) active', len(self.plugins))

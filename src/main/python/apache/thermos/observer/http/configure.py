@@ -49,4 +49,5 @@ def configure_server(task_observer, options=None):
   server.mount_routes(VarsEndpoint())
   register_build_properties(root_metrics)
   register_diagnostics(root_metrics)
+  server._bottle_observer = bottle_wrapper
   return server

@@ -241,6 +241,37 @@ class TestOidcBearerAuthSetup(unittest.TestCase):
         plugin.setup(MagicMock())
         self.assertIsNone(plugin._userinfo_url)
 
+    def test_setup_userinfo_url_skips_discovery(self):
+        """--oidc-userinfo-url set → discovery request never made."""
+        opts = _options(
+            oidc_issuer=None,
+            oidc_userinfo_url='https://oauth2proxy.example.com/oauth2/userinfo',
+        )
+        plugin = OidcBearerAuth(opts)
+        plugin.setup(MagicMock())
+        self.assertEqual(plugin._userinfo_url, 'https://oauth2proxy.example.com/oauth2/userinfo')
+        _requests_stub.get.assert_not_called()
+
+    def test_setup_userinfo_url_takes_precedence_over_issuer(self):
+        """When both are set, --oidc-userinfo-url wins; no discovery request."""
+        opts = _options(
+            oidc_issuer='https://auth.example.com',
+            oidc_userinfo_url='https://oauth2proxy.example.com/oauth2/userinfo',
+        )
+        plugin = OidcBearerAuth(opts)
+        plugin.setup(MagicMock())
+        self.assertEqual(plugin._userinfo_url, 'https://oauth2proxy.example.com/oauth2/userinfo')
+        _requests_stub.get.assert_not_called()
+
+    def test_setup_empty_userinfo_url_falls_back_to_discovery(self):
+        """Empty string for --oidc-userinfo-url is treated as unset; discovery runs."""
+        opts = _options(oidc_issuer='https://auth.example.com', oidc_userinfo_url='')
+        plugin = OidcBearerAuth(opts)
+        _requests_stub.get.return_value = _discovery_resp(200)
+        plugin.setup(MagicMock())
+        self.assertEqual(plugin._userinfo_url, 'https://auth.example.com/userinfo')
+        _requests_stub.get.assert_called_once()
+
 
 # ---------------------------------------------------------------------------
 # OidcBearerAuth — _validate_token
