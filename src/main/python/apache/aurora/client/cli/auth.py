@@ -204,14 +204,24 @@ def _browser_auth(discovery, client_id, cluster_name):
     _validate_https_url(token_endpoint, 'token_endpoint')
 
     verifier, challenge = _pkce_pair()
+    state = secrets.token_urlsafe(32)
     auth_code = [None]
     auth_error = [None]
+    state_error = [None]
     stop_event = threading.Event()
 
     class _CallbackHandler(http.server.BaseHTTPRequestHandler):
         def do_GET(self):
             params = parse_qs(urlparse(self.path).query)
-            if 'code' in params:
+            returned_state = params.get('state', [None])[0]
+            if returned_state != state:
+                state_error[0] = 'invalid_state'
+                body = (
+                    b'<html><body><h2>Authentication failed: invalid state</h2>'
+                    b'</body></html>'
+                )
+                self.send_response(400)
+            elif 'code' in params:
                 auth_code[0] = params['code'][0]
                 body = (
                     b'<html><body><h2>Authentication successful!</h2>'
@@ -249,6 +259,7 @@ def _browser_auth(discovery, client_id, cluster_name):
             'scope': 'openid email profile offline_access',
             'code_challenge': challenge,
             'code_challenge_method': 'S256',
+            'state': state,
         }),
     )
 
@@ -267,7 +278,8 @@ def _browser_auth(discovery, client_id, cluster_name):
         return 1
 
     if not auth_code[0]:
-        print(f'Authentication failed: {auth_error[0]}')
+        error = state_error[0] or auth_error[0]
+        print(f'Authentication failed: {error}')
         return 1
 
     try:

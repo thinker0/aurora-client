@@ -272,6 +272,43 @@ class TestOidcBearerAuthSetup(unittest.TestCase):
         self.assertEqual(plugin._userinfo_url, 'https://auth.example.com/userinfo')
         _requests_stub.get.assert_called_once()
 
+    def test_setup_rejects_non_https_userinfo_url(self):
+        opts = _options(
+            oidc_userinfo_url='http://oauth2proxy.example.com/oauth2/userinfo',
+        )
+        plugin = OidcBearerAuth(opts)
+        plugin.setup(MagicMock())
+        self.assertIsNone(plugin._userinfo_url)
+        _requests_stub.get.assert_not_called()
+
+    def test_setup_allows_localhost_http_userinfo_url(self):
+        opts = _options(oidc_userinfo_url='http://localhost:4180/oauth2/userinfo')
+        plugin = OidcBearerAuth(opts)
+        plugin.setup(MagicMock())
+        self.assertEqual(plugin._userinfo_url, 'http://localhost:4180/oauth2/userinfo')
+        _requests_stub.get.assert_not_called()
+
+    def test_setup_rejects_non_https_issuer(self):
+        opts = _options(oidc_issuer='http://auth.example.com')
+        plugin = OidcBearerAuth(opts)
+        plugin.setup(MagicMock())
+        self.assertIsNone(plugin._userinfo_url)
+        _requests_stub.get.assert_not_called()
+
+    def test_setup_allows_localhost_http_issuer(self):
+        opts = _options(oidc_issuer='http://127.0.0.1:8081')
+        plugin = OidcBearerAuth(opts)
+        _requests_stub.get.return_value = _discovery_resp(200, 'http://127.0.0.1:8081/userinfo')
+        plugin.setup(MagicMock())
+        self.assertEqual(plugin._userinfo_url, 'http://127.0.0.1:8081/userinfo')
+
+    def test_setup_rejects_non_https_discovered_userinfo(self):
+        opts = _options(oidc_issuer='https://auth.example.com')
+        plugin = OidcBearerAuth(opts)
+        _requests_stub.get.return_value = _discovery_resp(200, 'http://auth.example.com/userinfo')
+        plugin.setup(MagicMock())
+        self.assertIsNone(plugin._userinfo_url)
+
 
 # ---------------------------------------------------------------------------
 # OidcBearerAuth — _validate_token

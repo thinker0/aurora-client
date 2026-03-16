@@ -13,6 +13,11 @@
 #
 from abc import abstractmethod
 from base64 import b64encode
+import json
+import os
+import time
+
+import requests
 try:
   from netrc import netrc
 except ImportError:
@@ -23,6 +28,80 @@ from requests.auth import AuthBase
 from requests.utils import to_native_string
 from twitter.common import log
 from twitter.common.lang import Interface
+
+
+def _cluster_session_file(cluster_name=None):
+  if cluster_name:
+    return os.path.expanduser('~/.aurora/session.%s' % cluster_name)
+  return os.path.expanduser('~/.aurora/session')
+
+
+def _load_access_token_from_session_file(path):
+  session = _load_session_data(path)
+  if session is None:
+    return None
+  expires_at = session.get('expires_at', 0)
+  if time.time() >= expires_at - 60 and session.get('refresh_token'):
+    refreshed = _refresh_session_data(session, default_client_id='aurora-cli')
+    if refreshed is not None:
+      _save_session_data(path, refreshed)
+      session = refreshed
+  return session.get('access_token')
+
+
+def _load_session_data(path):
+  if not os.path.exists(path):
+    return None
+  try:
+    with open(path, 'r') as f:
+      return json.load(f)
+  except (OSError, UnicodeDecodeError, ValueError) as e:
+    log.warning('Failed to load session token from %s: %s', path, e)
+    return None
+
+
+def _save_session_data(path, session_data):
+  try:
+    directory = os.path.dirname(path)
+    if directory:
+      os.makedirs(directory, mode=0o700, exist_ok=True)
+    fd = os.open(path, os.O_CREAT | os.O_WRONLY | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, 'w') as f:
+      json.dump(session_data, f)
+  except OSError as e:
+    log.warning('Failed to save session token %s: %s', path, e)
+
+
+def _refresh_session_data(session_data, default_client_id=None):
+  token_endpoint = session_data.get('token_endpoint')
+  client_id = session_data.get('client_id') or default_client_id
+  refresh_token = session_data.get('refresh_token')
+  if not token_endpoint or not client_id or not refresh_token:
+    return None
+  try:
+    log.debug('Token refresh POST %s', token_endpoint)
+    resp = requests.post(
+      token_endpoint,
+      data={
+        'grant_type': 'refresh_token',
+        'client_id': client_id,
+        'refresh_token': refresh_token,
+      },
+      timeout=10,
+    )
+    new_data = resp.json()
+    if 'access_token' not in new_data:
+      log.warning('Token refresh response missing access_token')
+      return None
+    if 'refresh_token' not in new_data:
+      new_data['refresh_token'] = refresh_token
+    new_data.setdefault('token_endpoint', token_endpoint)
+    new_data.setdefault('client_id', client_id)
+    new_data['expires_at'] = int(time.time()) + new_data.get('expires_in', 3600)
+    return new_data
+  except (requests.RequestException, ValueError) as e:
+    log.warning('Token refresh failed: %s', e)
+    return None
 
 
 class AuthModule(Interface):
@@ -124,10 +203,6 @@ class BasicAuthModule(AuthModule):
             'Does your %s file contain valid credentials for the scheduler host?'
             % (self._netrc_file or '~/.netrc'))
 
-import os
-
-
-
 class SessionTokenAuth(AuthBase):
   def __init__(self, token_file=None, cluster_name=None):
     self._cluster = cluster_name
@@ -144,6 +219,8 @@ class SessionTokenAuth(AuthBase):
       if os.path.exists(self._token_file):
         with open(self._token_file, 'r') as f:
           self._token = f.read().strip()
+      if not self._token:
+        self._token = _load_access_token_from_session_file(_cluster_session_file(self._cluster))
     except (OSError, UnicodeDecodeError) as e:
       log.warning('Failed to load session token from %s: %s', self._token_file, e)
 
@@ -169,33 +246,38 @@ class SessionTokenAuthModule(AuthModule):
   def failed_auth_message(self):
     return 'Communication requires a valid session token. Please check ~/.aurora/token'
 
-import json
-import time
-import requests
-
 class OidcDeviceAuth(AuthBase):
-  def __init__(self, token_file=None):
-    self._token_file = token_file or os.path.expanduser('~/.aurora/oidc_token.json')
+  def __init__(self, token_file=None, cluster_name=None):
+    self._cluster = cluster_name
+    self._token_file = token_file or _cluster_session_file(cluster_name)
+    self._legacy_token_file = os.path.expanduser('~/.aurora/oidc_token.json')
     self._issuer = os.environ.get('AURORA_OIDC_ISSUER')
     self._client_id = os.environ.get('AURORA_OIDC_CLIENT_ID')
     self._access_token = None
     self._load_token()
 
   def _load_token(self):
-    if os.path.exists(self._token_file):
+    token_sources = [self._token_file]
+    if self._legacy_token_file not in token_sources:
+      token_sources.append(self._legacy_token_file)
+    for token_path in token_sources:
+      if not os.path.exists(token_path):
+        continue
       try:
-        with open(self._token_file, 'r') as f:
+        with open(token_path, 'r') as f:
           data = json.load(f)
         if 'access_token' not in data:
-          log.warning('OIDC token file missing access_token: %s', self._token_file)
-          return
+          log.warning('OIDC token file missing access_token: %s', token_path)
+          continue
         expires_at = data.get('expires_at', 0)
         if time.time() >= expires_at - 60 and data.get('refresh_token'):
           data = self._refresh_token(data) or data
         if 'access_token' in data:
           self._access_token = data['access_token']
-      except (OSError, UnicodeDecodeError, json.JSONDecodeError) as e:
-        log.warning('Failed to load OIDC token from %s: %s', self._token_file, e)
+          self._token_file = token_path
+          return
+      except (OSError, UnicodeDecodeError, ValueError) as e:
+        log.warning('Failed to load OIDC token from %s: %s', token_path, e)
 
   def _save_token(self, data):
     try:
@@ -345,7 +427,7 @@ class OidcDeviceAuthModule(AuthModule):
     return 'OIDC_DEVICE'
 
   def auth(self, cluster_name=None):
-    return OidcDeviceAuth(token_file=self._token_file)
+    return OidcDeviceAuth(token_file=self._token_file, cluster_name=cluster_name)
 
   @property
   def failed_auth_message(self):

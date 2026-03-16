@@ -20,6 +20,12 @@ from twitter.common import app
 from twitter.common.log.options import LogOptions
 
 from apache.aurora.admin import admin, help as help_commands, maintenance
+from apache.aurora.common.auth.auth_module import (
+    BasicAuthModule,
+    OidcDeviceAuthModule,
+    ProxySessionAuthModule,
+    SessionTokenAuthModule,
+)
 from apache.aurora.common.auth.auth_module_manager import register_auth_module
 
 from .help import add_verbosity_options, generate_terse_usage
@@ -38,6 +44,11 @@ try:
 except ImportError:
   # Use default auth implementation if kerberos is not available.
   pass
+
+register_auth_module(BasicAuthModule())
+register_auth_module(SessionTokenAuthModule())
+register_auth_module(OidcDeviceAuthModule())
+register_auth_module(ProxySessionAuthModule())
 
 LogOptions.set_stderr_log_level('INFO')
 LogOptions.disable_disk_logging()

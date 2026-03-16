@@ -8,7 +8,7 @@
     "zk": "127.0.0.1"
   },
   {
-    "auth_mechanism": "UNAUTHENTICATED",
+    "auth_mechanism": "OIDC_DEVICE",
     "name": "example-oidc",
     "oidc_issuer": "https://auth.example.com",
     "oidc_client_id": "aurora-cli",

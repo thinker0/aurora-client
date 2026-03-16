@@ -2,7 +2,12 @@
 import os
 import unittest
 from unittest.mock import mock_open, patch, MagicMock
-from apache.aurora.common.auth.auth_module import ProxySessionAuth, SessionTokenAuth, OidcDeviceAuth
+from apache.aurora.common.auth.auth_module import (
+  OidcDeviceAuth,
+  OidcDeviceAuthModule,
+  ProxySessionAuth,
+  SessionTokenAuth,
+)
 
 class TestAuthModules(unittest.TestCase):
   @patch('os.path.exists')
@@ -41,3 +46,43 @@ class TestAuthModules(unittest.TestCase):
     with patch('builtins.open', m):
       auth = OidcDeviceAuth(token_file='/tmp/token.json')
       self.assertEqual(auth._access_token, 'jwt-token-xyz')
+
+  def test_oidc_device_auth_module_uses_cluster_session_file(self):
+    with patch('os.path.exists', return_value=False):
+      auth = OidcDeviceAuthModule().auth(cluster_name='prod')
+    self.assertEqual(auth._token_file, os.path.expanduser('~/.aurora/session.prod'))
+
+  def test_session_token_auth_falls_back_to_session_json(self):
+    def _exists(path):
+      return path.endswith('/session.prod')
+
+    with patch('os.path.exists', side_effect=_exists):
+      m = mock_open(read_data='{"access_token":"session-token"}')
+      with patch('builtins.open', m):
+        auth = SessionTokenAuth(cluster_name='prod')
+        request = MagicMock()
+        request.headers = {}
+        auth(request)
+        self.assertEqual(request.headers['Authorization'], 'Bearer session-token')
+
+  @patch('apache.aurora.common.auth.auth_module.requests.post')
+  def test_session_token_auth_refreshes_expired_session_json(self, mock_post):
+    def _exists(path):
+      return path.endswith('/session.prod')
+
+    refreshed = MagicMock()
+    refreshed.json.return_value = {'access_token': 'new-token', 'expires_in': 3600}
+    mock_post.return_value = refreshed
+    session_json = (
+      '{"access_token":"old-token","expires_at":1,'
+      '"refresh_token":"refresh-token","token_endpoint":"https://auth.example.com/token",'
+      '"client_id":"aurora-cli"}'
+    )
+    with patch('os.path.exists', side_effect=_exists):
+      m = mock_open(read_data=session_json)
+      with patch('builtins.open', m):
+        auth = SessionTokenAuth(cluster_name='prod')
+        request = MagicMock()
+        request.headers = {}
+        auth(request)
+        self.assertEqual(request.headers['Authorization'], 'Bearer new-token')

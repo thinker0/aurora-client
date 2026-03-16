@@ -140,7 +140,13 @@ Credentials are stored in Redis as `sha256:<hash(user:password)>` under the key 
 
 ### Session Token
 
-Place a Bearer token in `~/.aurora/token.<cluster>` (or `~/.aurora/token`):
+`SESSION_TOKEN` supports both legacy token files and OIDC session files:
+
+- Legacy plain token: `~/.aurora/token.<cluster>` (or `~/.aurora/token`)
+- OIDC session JSON: `~/.aurora/session.<cluster>`
+
+When a session JSON is present and expired, the client automatically refreshes it using
+`refresh_token` and `token_endpoint`.
 
 ```json
 {
@@ -197,6 +203,8 @@ to point directly at its `/oauth2/userinfo` endpoint, bypassing discovery:
 
 > When `--oidc-userinfo-url` is set, `--oidc-issuer` is not required and
 > `GET /.well-known/openid-configuration` is never called.
+> For local development, `http://localhost` and loopback URLs are allowed.
+> In remote environments, use HTTPS endpoints.
 
 ### Auth flow
 

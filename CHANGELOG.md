@@ -7,6 +7,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased] — 2026-03-16
 
+### Changed
+- `SESSION_TOKEN` now reads `~/.aurora/session.<cluster>` in addition to legacy
+  `~/.aurora/token.<cluster>` files, and automatically refreshes expired OIDC sessions
+  using `refresh_token` + `token_endpoint`.
+- `aurora-admin` now registers the same auth modules as `aurora` (`BASIC`,
+  `SESSION_TOKEN`, `OIDC_DEVICE`, `PROXY_SESSION`) in addition to optional Kerberos.
+- Browser OIDC login now includes OAuth2 `state` generation and callback validation.
+- Thermos OIDC endpoint validation now enforces HTTPS for remote endpoints while allowing
+  loopback HTTP URLs for local development (`localhost`, `127.0.0.1`, `::1`).
+
 ### Security
 - **Command injection fix** (`admin/admin_util.py`): validate hostnames with `_HOSTNAME_RE`
   regex before passing to `subprocess.Popen`; invalid hostnames cause `die()` with a clear error.

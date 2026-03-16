@@ -21,6 +21,7 @@ system. To do this, it relies heavily on the Thermos TaskObserver.
 import socket
 import hashlib
 import threading
+from urllib.parse import urlparse
 import bottle
 import requests as _requests
 
@@ -42,6 +43,18 @@ cache = ExpiringDict(max_len=100, max_age_seconds=1800)
 # Cache for OIDC token validation results (5-minute TTL — tokens are short-lived)
 _oidc_cache = ExpiringDict(max_len=500, max_age_seconds=300)
 _oidc_cache_lock = threading.Lock()
+
+
+def _is_allowed_oidc_url(url):
+  try:
+    parsed = urlparse(url)
+    if parsed.scheme == 'https':
+      return True
+    if parsed.scheme == 'http' and parsed.hostname in ('localhost', '127.0.0.1', '::1'):
+      return True
+    return False
+  except Exception:
+    return False
 
 
 class BasicAuth(Plugin):
@@ -130,10 +143,19 @@ class OidcBearerAuth(Plugin):
 
   def setup(self, app):
     if self._userinfo_url:
+      if not _is_allowed_oidc_url(self._userinfo_url):
+        log.error('OidcBearerAuth: --oidc-userinfo-url must use HTTPS (localhost may use HTTP): %s',
+                  self._userinfo_url)
+        self._userinfo_url = None
+        return
       log.debug('OidcBearerAuth: using pre-configured userinfo URL: %s', self._userinfo_url)
       return
     if not self._issuer:
       log.error('OidcBearerAuth: --oidc-issuer or --oidc-userinfo-url is required')
+      return
+    if not _is_allowed_oidc_url(self._issuer):
+      log.error('OidcBearerAuth: --oidc-issuer must use HTTPS (localhost may use HTTP): %s',
+                self._issuer)
       return
     config_url = self._issuer.rstrip('/') + '/.well-known/openid-configuration'
     log.debug('OidcBearerAuth: fetching OIDC discovery document: %s', config_url)
@@ -148,6 +170,10 @@ class OidcBearerAuth(Plugin):
       if not self._userinfo_url:
         log.error('OidcBearerAuth: OIDC discovery document missing userinfo_endpoint (url=%s)',
                   config_url)
+      elif not _is_allowed_oidc_url(self._userinfo_url):
+        log.error('OidcBearerAuth: userinfo_endpoint must use HTTPS (localhost may use HTTP), got %s',
+                  self._userinfo_url)
+        self._userinfo_url = None
       else:
         log.debug('OidcBearerAuth: discovered userinfo endpoint: %s', self._userinfo_url)
     except Exception as e:
@@ -267,7 +293,8 @@ class CombinedAuth(Plugin):
       log.debug('CombinedAuth: all auth methods failed, returning 401, path=%s', path)
       raise HTTPResponse(
           status=401,
-          headers={'WWW-Authenticate': 'Basic realm="%s"' % self._realm},
+          headers={'WWW-Authenticate': 'Bearer realm="%s", Basic realm="%s"'
+                   % (self._realm, self._realm)},
       )
     return wrap
 
