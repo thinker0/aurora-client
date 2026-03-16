@@ -163,7 +163,7 @@ Place the proxy session cookie in `~/.aurora/session.<cluster>`:
 ## Thermos Observer Authentication
 
 The Thermos HTTP Observer (`http_observer.py`) supports three authentication modes
-via the `enable_authentication` option:
+via the `--enable-authentication` option:
 
 | Mode | Description |
 |------|-------------|
@@ -171,7 +171,10 @@ via the `enable_authentication` option:
 | `oidc` | OIDC Bearer token only (validates via `/userinfo` endpoint) |
 | `oidc+basic` | OIDC Bearer preferred; falls back to Basic Auth |
 
-**Example (thermos observer startup options):**
+### Standard OIDC provider (Keycloak, Okta, etc.)
+
+OIDC discovery (`/.well-known/openid-configuration`) is used to locate the
+`userinfo_endpoint` automatically:
 
 ```
 --enable-authentication=oidc+basic
@@ -180,18 +183,41 @@ via the `enable_authentication` option:
 --redis-key-prefix=/aurora/thermos/user/
 ```
 
-**Auth flow:**
+### oauth2-proxy
+
+oauth2-proxy does not expose a discovery document. Use `--oidc-userinfo-url`
+to point directly at its `/oauth2/userinfo` endpoint, bypassing discovery:
+
+```
+--enable-authentication=oidc+basic
+--oidc-userinfo-url=https://oauth2proxy.example.com/oauth2/userinfo
+--redis-cluster=redis://redis-host:7000
+--redis-key-prefix=/aurora/thermos/user/
+```
+
+> When `--oidc-userinfo-url` is set, `--oidc-issuer` is not required and
+> `GET /.well-known/openid-configuration` is never called.
+
+### Auth flow
 
 ```
 aurora auth login <cluster>          → stores OIDC access_token
     ↓
 SessionTokenAuth                     → Authorization: Bearer <token>
     ↓
-Thermos OidcBearerAuth               → GET /userinfo → 200 OK → allow
+ThermosProxyServlet                  → forwards Authorization header (Jetty default)
+    ↓
+OidcBearerAuth / CombinedAuth        → GET /userinfo → 200 OK → allow
                                                       → non-200 → 401
 ```
 
 Token validation results are cached for 5 minutes to avoid repeated calls to the OIDC provider.
+
+### Debug logging
+
+Run the observer with `--verbose` (or `-v`) to enable `log.debug` output for all
+authentication steps: Redis key lookups, cache hit/miss, token validation requests,
+HTTP response codes, and per-request auth decisions.
 
 ---
 

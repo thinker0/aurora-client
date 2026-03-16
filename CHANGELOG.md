@@ -13,6 +13,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **SSH injection fix** (`client/api/command_runner.py`): validate `hostname` and `role`
   with `_SSH_SAFE` regex before constructing the SSH command; invalid values are skipped with
   an error log instead of being passed to the shell.
+- **Hash leak fix** (`thermos/observer/http/http_observer.py`): removed SHA-256 hash prefix
+  from auth-failure debug log lines to prevent partial credential material appearing in logs.
 
 ### Fixed
 - Narrowed 4× bare `except Exception:` in `executor/aurora_executor.py` to specific types
@@ -22,15 +24,29 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   (correct scope for optional `kazoo.recipe` import).
 - `client/hooks/hooked_api.py`: include exception type and message in hook error log for
   faster debugging.
+- `BasicAuth.setup()`: use `getattr()` for `redis_key_prefix` to prevent `AttributeError`
+  when option is absent.
+- `configure.py` + `thermos_observer.py`: `BottleObserver.close()` is now called on
+  shutdown via `try/finally`, releasing Redis connections cleanly.
 
 ### Added
 - **Thermos OIDC Bearer auth** (`thermos/observer/http/http_observer.py`):
   - `OidcBearerAuth` plugin: validates `Authorization: Bearer <token>` via OIDC `/userinfo`
-    endpoint with a 5-minute `ExpiringDict` cache.
+    endpoint with a 5-minute `ExpiringDict` cache (thread-safe).
   - `CombinedAuth` plugin: tries OIDC Bearer first, falls back to HTTP Basic Auth.
   - `AuthenticateEverything` now supports three modes:
     `'basic'` (existing), `'oidc'`, `'oidc+basic'`.
-- **Auth debug logging**: `log.debug()` calls added to all OIDC HTTP requests in
+- **`--oidc-userinfo-url` option** (`tools/thermos_observer.py`): directly specify the
+  OIDC userinfo endpoint URL, bypassing `/.well-known/openid-configuration` discovery.
+  Required for **oauth2-proxy** deployments (e.g. `https://proxy.example.com/oauth2/userinfo`).
+  When set, `--oidc-issuer` is not needed.
+- **Verbose debug logging** for all auth paths — visible with `--verbose`:
+  - `BasicAuth`: Redis key lookup, cache hit/miss, accept/reject per request.
+  - `OidcBearerAuth`: discovery URL and response, token prefix (first 8 chars),
+    userinfo HTTP status, cache hit/miss, per-request path.
+  - `CombinedAuth`: which auth method was attempted, fallback decisions, final 401 reason.
+  - `AuthenticateEverything`: active mode, plugin name, issuer/userinfo URL at startup.
+- **Auth debug logging** in CLI: `log.debug()` calls added to all OIDC HTTP requests in
   `client/cli/auth.py` and `common/auth/auth_module.py` — visible with `--verbose`.
 
 ---
