@@ -21,6 +21,7 @@ system. To do this, it relies heavily on the Thermos TaskObserver.
 import socket
 import hashlib
 import bottle
+import requests as _requests
 
 from bottle import HTTPResponse
 from expiringdict import ExpiringDict
@@ -34,9 +35,11 @@ from .json import TaskObserverJSONBindings
 from .static_assets import StaticAssets
 from .templating import HttpTemplate
 
-# Cache for user authentication information
-# TODO make this configurable
+# Cache for Basic Auth credentials (30-minute TTL)
 cache = ExpiringDict(max_len=100, max_age_seconds=1800)
+
+# Cache for OIDC token validation results (5-minute TTL — tokens are short-lived)
+_oidc_cache = ExpiringDict(max_len=500, max_age_seconds=300)
 
 
 class BasicAuth(Plugin):
@@ -115,18 +118,128 @@ class BasicAuth(Plugin):
     self._authRedis.close()
 
 
+class OidcBearerAuth(Plugin):
+  """Bottle plugin that validates OIDC Bearer tokens via the userinfo endpoint."""
+  name = 'oidc_bearer_auth'
+
+  def __init__(self, options, realm='Thermos Observer'):
+    self._issuer = getattr(options, 'oidc_issuer', None)
+    self._realm = realm
+    self._userinfo_url = None
+
+  def setup(self, app):
+    if not self._issuer:
+      log.error('OidcBearerAuth: oidc_issuer option is required')
+      return
+    config_url = self._issuer.rstrip('/') + '/.well-known/openid-configuration'
+    try:
+      resp = _requests.get(config_url, timeout=5)
+      self._userinfo_url = resp.json().get('userinfo_endpoint')
+      log.debug('OidcBearerAuth: userinfo endpoint: %s', self._userinfo_url)
+    except Exception as e:
+      log.error('OidcBearerAuth: failed to fetch OIDC discovery document: %s', e)
+
+  def _validate_token(self, token):
+    cached = _oidc_cache.get(token)
+    if cached is not None:
+      return cached
+    if not self._userinfo_url:
+      return False
+    try:
+      resp = _requests.get(
+          self._userinfo_url,
+          headers={'Authorization': 'Bearer ' + token},
+          timeout=5,
+      )
+      ok = resp.status_code == 200
+      _oidc_cache[token] = ok
+      if ok:
+        log.debug('OidcBearerAuth: token valid, sub=%s', resp.json().get('sub', '?'))
+      else:
+        log.debug('OidcBearerAuth: token rejected, status=%s', resp.status_code)
+      return ok
+    except Exception as e:
+      log.warning('OidcBearerAuth: token validation error: %s', e)
+      return False
+
+  def apply(self, callback, context):
+    def wrap(*args, **kwargs):
+      auth_header = request.headers.get('Authorization', '')
+      if auth_header.startswith('Bearer ') and self._validate_token(auth_header[7:]):
+        return callback(*args, **kwargs)
+      raise HTTPResponse(
+          status=401,
+          headers={'WWW-Authenticate': 'Bearer realm="%s"' % self._realm},
+      )
+    return wrap
+
+  def close(self):
+    pass
+
+
+class CombinedAuth(Plugin):
+  """Bottle plugin that accepts either an OIDC Bearer token or HTTP Basic credentials."""
+  name = 'combined_auth'
+
+  def __init__(self, options, realm='Thermos Observer'):
+    self._oidc = OidcBearerAuth(options, realm)
+    self._basic = BasicAuth(options, realm)
+    self._realm = realm
+
+  def setup(self, app):
+    self._oidc.setup(app)
+    self._basic.setup(app)
+
+  def apply(self, callback, context):
+    def wrap(*args, **kwargs):
+      # 1) OIDC Bearer token — tried first
+      auth_header = request.headers.get('Authorization', '')
+      if auth_header.startswith('Bearer '):
+        if self._oidc._validate_token(auth_header[7:]):
+          log.debug('CombinedAuth: OIDC Bearer accepted')
+          return callback(*args, **kwargs)
+
+      # 2) HTTP Basic credentials
+      user, password = request.auth or (None, None)
+      if user and password:
+        user_hash = hashlib.sha256(
+            ('%s:%s' % (user, password)).encode('utf-8')
+        ).hexdigest()
+        if self._basic.get_user(user) == 'sha256:%s' % user_hash:
+          log.debug('CombinedAuth: Basic accepted, user=%s', user)
+          self._basic.set_cache(user, user_hash)
+          return callback(*args, **kwargs)
+
+      # 3) Neither succeeded
+      raise HTTPResponse(
+          status=401,
+          headers={'WWW-Authenticate': 'Basic realm="%s"' % self._realm},
+      )
+    return wrap
+
+  def close(self):
+    self._oidc.close()
+    self._basic.close()
+
+
 class AuthenticateEverything(object):
   plugins = []
 
   def __init__(self, options):
     self._options = options
-    if options.enable_authentication is not None \
-        and options.enable_authentication.lower()=='basic':
-      basicAuth = BasicAuth(self._options)
-      log.debug('Installing AuthenticateEverything')
-      bottle.install(basicAuth)
-      self.plugins.append(basicAuth)
-      log.debug('Installing AuthenticateEverything.plugins: %d' % len(self.plugins))
+    mode = (getattr(options, 'enable_authentication', None) or '').lower()
+    plugin = None
+    if mode == 'basic':
+      plugin = BasicAuth(self._options)
+    elif mode == 'oidc':
+      plugin = OidcBearerAuth(self._options)
+    elif mode == 'oidc+basic':
+      plugin = CombinedAuth(self._options)
+    if plugin is not None:
+      log.debug('Installing auth plugin: %s', plugin.name)
+      bottle.install(plugin)
+      self.plugins.append(plugin)
+      log.debug('AuthenticateEverything: %d plugin(s) active', len(self.plugins))
 
 
 class BottleObserver(HttpServer, StaticAssets, TaskObserverFileBrowser, TaskObserverJSONBindings,
