@@ -99,9 +99,10 @@ class HookedAuroraClientAPI(NonHookedAuroraClientAPI):
         if not hook_result:
           log.debug('%s in %s returned False' % (hook_method.__name__,
               hook.__class__.__name__))
-      except Exception:
-        log.warn('Error in %s in %s' %
-            (hook_method.__name__, hook.__class__.__name__))
+      except Exception as e:
+        log.warn('Error in %s in %s (%s: %s)' %
+            (hook_method.__name__, hook.__class__.__name__,
+             type(e).__name__, e))
         log.warn(traceback.format_exc())
       return hook_result
     return callback

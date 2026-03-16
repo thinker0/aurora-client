@@ -107,7 +107,7 @@ def apply() -> None:
 
     try:
         import kazoo.recipe  # type: ignore
-    except Exception:
+    except ImportError:
         return
 
     recipe_mod = _ensure_module("kazoo.recipe")
