@@ -175,9 +175,9 @@ via the `enable_authentication` option:
 
 ```
 --enable-authentication=oidc+basic
---oidc_issuer=https://auth.example.com
---redis_cluster=redis://redis-host:7000
---redis_key_prefix=/aurora/thermos/user/
+--oidc-issuer=https://auth.example.com
+--redis-cluster=redis://redis-host:7000
+--redis-key-prefix=/aurora/thermos/user/
 ```
 
 **Auth flow:**

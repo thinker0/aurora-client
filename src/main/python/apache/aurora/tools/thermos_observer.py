@@ -121,7 +121,13 @@ app.add_option(
     '--enable-authentication',
     default=None,
     dest='enable_authentication',
-    help='A Authentication method "Basic"')
+    help='Authentication mode: "basic", "oidc", or "oidc+basic".')
+
+app.add_option(
+    '--oidc-issuer',
+    default=None,
+    dest='oidc_issuer',
+    help='OIDC issuer URL (e.g. https://auth.example.com). Required for oidc and oidc+basic modes.')
 
 app.add_option(
     '--redis-cluster',

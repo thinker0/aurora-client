@@ -20,6 +20,7 @@ system. To do this, it relies heavily on the Thermos TaskObserver.
 """
 import socket
 import hashlib
+import threading
 import bottle
 import requests as _requests
 
@@ -40,6 +41,7 @@ cache = ExpiringDict(max_len=100, max_age_seconds=1800)
 
 # Cache for OIDC token validation results (5-minute TTL — tokens are short-lived)
 _oidc_cache = ExpiringDict(max_len=500, max_age_seconds=300)
+_oidc_cache_lock = threading.Lock()
 
 
 class BasicAuth(Plugin):
@@ -92,25 +94,16 @@ class BasicAuth(Plugin):
       log.debug('cache set: %s=sha256:%s' % (user, user_hash))
 
   def apply(self, callback, context):
-    user, password = request.auth or (None, None)
-    user_hash = hashlib.sha256(('%s:%s' % (user, password)).encode('utf-8')).hexdigest()
-    if (user is not None and password is not None
-        and self.get_user(user) == 'sha256:%s' % user_hash):
-      log.debug('Success Authorization user=%s' % user)
-      return callback
-
     def wrap(*args, **kwargs):
       user, password = request.auth or (None, None)
-      user_hash = hashlib.sha256(('%s:%s' % (user, password)).encode('utf-8')).hexdigest()
-      if (user is not None and password is not None
-          and self.get_user(user) == 'sha256:%s' % user_hash):
-        log.debug('Success Authorization user=%s, hash=256:%s' % (user, user_hash))
-        self.set_cache(user, user_hash)
-        return callback(*args, **kwargs)
-      else:
-        # log.debug("userhash: cache(%s) %s:sha256:%s" % (self.get_user(user), user, userhash))
-        log.debug("Authentication: sha256:%s" % user_hash)
-        raise HTTPResponse(status=401, headers={'WWW-Authenticate': 'Basic realm="%s"' % self._realm})
+      if user is not None and password is not None:
+        user_hash = hashlib.sha256(('%s:%s' % (user, password)).encode('utf-8')).hexdigest()
+        if self.get_user(user) == 'sha256:%s' % user_hash:
+          log.debug('Success Authorization user=%s' % user)
+          self.set_cache(user, user_hash)
+          return callback(*args, **kwargs)
+      log.debug('Authentication failed')
+      raise HTTPResponse(status=401, headers={'WWW-Authenticate': 'Basic realm="%s"' % self._realm})
     return wrap
 
   def close(self):
@@ -129,18 +122,25 @@ class OidcBearerAuth(Plugin):
 
   def setup(self, app):
     if not self._issuer:
-      log.error('OidcBearerAuth: oidc_issuer option is required')
+      log.error('OidcBearerAuth: --oidc-issuer is required for oidc auth mode')
       return
     config_url = self._issuer.rstrip('/') + '/.well-known/openid-configuration'
     try:
       resp = _requests.get(config_url, timeout=5)
+      if resp.status_code != 200:
+        log.error('OidcBearerAuth: OIDC discovery returned HTTP %s', resp.status_code)
+        return
       self._userinfo_url = resp.json().get('userinfo_endpoint')
-      log.debug('OidcBearerAuth: userinfo endpoint: %s', self._userinfo_url)
+      if not self._userinfo_url:
+        log.error('OidcBearerAuth: OIDC discovery document missing userinfo_endpoint')
+      else:
+        log.debug('OidcBearerAuth: userinfo endpoint: %s', self._userinfo_url)
     except Exception as e:
       log.error('OidcBearerAuth: failed to fetch OIDC discovery document: %s', e)
 
   def _validate_token(self, token):
-    cached = _oidc_cache.get(token)
+    with _oidc_cache_lock:
+      cached = _oidc_cache.get(token)
     if cached is not None:
       return cached
     if not self._userinfo_url:
@@ -152,9 +152,14 @@ class OidcBearerAuth(Plugin):
           timeout=5,
       )
       ok = resp.status_code == 200
-      _oidc_cache[token] = ok
+      with _oidc_cache_lock:
+        _oidc_cache[token] = ok
       if ok:
-        log.debug('OidcBearerAuth: token valid, sub=%s', resp.json().get('sub', '?'))
+        try:
+          sub = resp.json().get('sub', '?')
+        except (ValueError, KeyError):
+          sub = '?'
+        log.debug('OidcBearerAuth: token valid, sub=%s', sub)
       else:
         log.debug('OidcBearerAuth: token rejected, status=%s', resp.status_code)
       return ok
@@ -223,9 +228,9 @@ class CombinedAuth(Plugin):
 
 
 class AuthenticateEverything(object):
-  plugins = []
 
   def __init__(self, options):
+    self.plugins = []
     self._options = options
     mode = (getattr(options, 'enable_authentication', None) or '').lower()
     plugin = None
@@ -240,6 +245,13 @@ class AuthenticateEverything(object):
       bottle.install(plugin)
       self.plugins.append(plugin)
       log.debug('AuthenticateEverything: %d plugin(s) active', len(self.plugins))
+
+  def close(self):
+    for plugin in self.plugins:
+      try:
+        plugin.close()
+      except Exception as e:
+        log.warning('Error closing auth plugin %s: %s', plugin.name, e)
 
 
 class BottleObserver(HttpServer, StaticAssets, TaskObserverFileBrowser, TaskObserverJSONBindings,
