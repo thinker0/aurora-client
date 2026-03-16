@@ -1,12 +1,30 @@
-# Aurora Scheduler Client
+# Aurora Client
 
-Python 2 based Aurora Schduler client.
+Python 3 client for the [Apache Aurora](https://aurora.apache.org/) scheduler.
+Migrated from Python 2, fully compatible with CPython 3.9+ on Linux (CentOS 7, Rocky 8/9) and macOS.
 
-**This project is looking for a maintainer. please reach out via slack if you're interested in maintaining this project.**
+## Features
 
-## Local setup (~/.pants.rc)
+- Full Aurora CLI (`aurora`) and admin CLI (`aurora_admin`)
+- OIDC authentication (Authorization Code + PKCE, Device Authorization Flow)
+- HTTP Basic Auth via Redis-backed credential store
+- Session token and OAuth2-Proxy session support
+- Thermos HTTP Observer with pluggable auth (OIDC / Basic / combined)
+- ZooKeeper compatibility via Kazoo 2.10 shim
 
-Pants uses local wheel files instead of PyPI. Create `~/.pants.rc` with the path to your local wheels directory:
+---
+
+## Quick Start
+
+### Prerequisites
+
+- Python 3.9+
+- [Pants v2.17](https://www.pantsbuild.org/)
+- Local wheel files (see [Local Setup](#local-setup))
+
+### Local Setup (`~/.pants.rc`)
+
+Pants uses local wheel files instead of PyPI. Create `~/.pants.rc`:
 
 ```ini
 [python-repos]
@@ -15,46 +33,196 @@ path_mappings = ["AURORA_WHEELS_DIR|/path/to/your/wheels"]
 ```
 
 The wheels directory must contain the `.whl` files listed in `3rdparty/python/requirements.txt`.
-On macOS, this is typically the `3rdparty/python/wheels` symlink target.
+On macOS the `3rdparty/python/wheels` symlink points to the right location.
 
-## Running all tests:
-`$ pants test ::`
+Alternatively, use the wrapper which sets `find_links` dynamically:
 
-If you want to force local wheels (to avoid pulling external `twitter.common` packages),
-use the wrapper:
+```bash
+./run-pants-local-wheels.sh test ::
+```
 
-`$ ./run-pants-local-wheels.sh test ::`
+---
 
-## Building instructions:
+## Building
 
-### Client:
+### Aurora CLI
 
-`$ ./pants package src/main/python/apache/aurora/kerberos:kaurora`
+```bash
+pants package src/main/python/apache/aurora/kerberos:kaurora
+```
 
-### Admin client:
+### Admin CLI
 
-`$ ./pants package src/main/python/apache/aurora/kerberos:kaurora_admin`
+```bash
+pants package src/main/python/apache/aurora/kerberos:kaurora_admin
+```
 
-### Kazoo Compatibility (aurora_admin)
+### Thermos Observer
 
-The admin client uses `kazoo==2.10.0` while legacy `twitter.common.zookeeper`
-expects older recipe APIs. We fork `twitter.common.zookeeper` into the repo and
-apply a small compat shim:
+```bash
+pants package src/main/python/apache/aurora/tools:thermos_observer
+```
+
+### Self-Extracting Installer (macOS)
+
+```bash
+./build-installer.sh
+```
+
+Produces `aurora-client-<version>-darwin.sh` that installs `aurora` and `aurora_admin` into `~/bin`.
+
+### Python Source Distributions
+
+```bash
+./build-support/release/make-python-sdists
+```
+
+---
+
+## Running Tests
+
+```bash
+pants test ::
+```
+
+To force local wheels:
+
+```bash
+./run-pants-local-wheels.sh test ::
+```
+
+---
+
+## Authentication
+
+Aurora Client supports multiple authentication mechanisms, configured per-cluster in `clusters.json`.
+
+### OIDC Login (recommended)
+
+```bash
+# Browser flow (macOS / desktop)
+aurora auth login <cluster>
+
+# Device Authorization Flow (headless / server)
+aurora auth login --device <cluster>
+```
+
+Sessions are stored in `~/.aurora/session.<cluster>`.
+Tokens are automatically refreshed on expiry.
+
+**`clusters.json` example:**
+
+```json
+{
+  "mycluster": {
+    "name": "mycluster",
+    "zk": "zk-host:2181",
+    "scheduler_zk_path": "/aurora/scheduler",
+    "auth_mechanism": "OIDC_DEVICE",
+    "oidc_issuer": "https://auth.example.com",
+    "oidc_client_id": "aurora-cli"
+  }
+}
+```
+
+### HTTP Basic Auth
+
+Credentials are stored in Redis as `sha256:<hash(user:password)>` under the key prefix
+`/aurora/thermos/user/<username>`.
+
+```json
+{
+  "mycluster": {
+    "auth_mechanism": "BASIC"
+  }
+}
+```
+
+### Session Token
+
+Place a Bearer token in `~/.aurora/token.<cluster>` (or `~/.aurora/token`):
+
+```json
+{
+  "auth_mechanism": "SESSION_TOKEN"
+}
+```
+
+### OAuth2-Proxy Session (cookie-based)
+
+Place the proxy session cookie in `~/.aurora/session.<cluster>`:
+
+```json
+{
+  "auth_mechanism": "PROXY_SESSION"
+}
+```
+
+---
+
+## Thermos Observer Authentication
+
+The Thermos HTTP Observer (`http_observer.py`) supports three authentication modes
+via the `enable_authentication` option:
+
+| Mode | Description |
+|------|-------------|
+| `basic` | HTTP Basic Auth only (Redis-backed SHA-256, backward compatible) |
+| `oidc` | OIDC Bearer token only (validates via `/userinfo` endpoint) |
+| `oidc+basic` | OIDC Bearer preferred; falls back to Basic Auth |
+
+**Example (thermos observer startup options):**
+
+```
+--enable_authentication=oidc+basic
+--oidc_issuer=https://auth.example.com
+--redis_cluster=redis://redis-host:7000
+--redis_key_prefix=/aurora/thermos/user/
+```
+
+**Auth flow:**
+
+```
+aurora auth login <cluster>          → stores OIDC access_token
+    ↓
+SessionTokenAuth                     → Authorization: Bearer <token>
+    ↓
+Thermos OidcBearerAuth               → GET /userinfo → 200 OK → allow
+                                                      → non-200 → 401
+```
+
+Token validation results are cached for 5 minutes to avoid repeated calls to the OIDC provider.
+
+---
+
+## Kazoo Compatibility
+
+The admin client uses `kazoo==2.10.0` while the legacy `twitter.common.zookeeper`
+expects older recipe APIs. A compatibility shim is applied at startup:
 
 - Shim: `src/main/python/apache/aurora/common/kazoo_compat.py`
-- Applied early in: `src/main/python/apache/aurora/admin/aurora_admin.py`
+- Applied in: `src/main/python/apache/aurora/admin/aurora_admin.py`
 - Forked package: `src/main/python/twitter/common/zookeeper`
-- Wheels used from: `3rdparty/python/wheels`
 
-If you update `kazoo`, update the wheel in `3rdparty/python/wheels` and re-run
-`./run-aurora-admin.sh` to verify the host command still works.
+To build the forked ZooKeeper wheel:
 
-To build a wheel for the forked package:
+```bash
+pants package src/main/python/twitter/common/zookeeper:zookeeper_dist
+```
 
-`$ ./pants package src/main/python/twitter/common/zookeeper:zookeeper_dist`
+---
 
-### Thermos observer:
-`$ ./pants package src/main/python/apache/aurora/tools:thermos_observer`
+## Platform Support
 
-## Create python source distributions:
-`$ ./build-support/release/make-python-sdists`
+| Platform | CPython | Build script |
+|----------|---------|--------------|
+| macOS (arm64 / x86_64) | 3.9 | `build-artifact.sh` |
+| CentOS 7 | 3.8 | `build-centos7-cpython38-wheels.sh` |
+| Rocky Linux 8 | 3.9 | `build-rocky8-cpython-wheels.sh` |
+| Rocky Linux 9 | 3.9 | `build-rocky9-cpython-wheels.sh` |
+
+---
+
+## License
+
+Apache License 2.0 — see [LICENSE](LICENSE).
