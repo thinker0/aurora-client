@@ -174,7 +174,7 @@ via the `enable_authentication` option:
 **Example (thermos observer startup options):**
 
 ```
---enable_authentication=oidc+basic
+--enable-authentication=oidc+basic
 --oidc_issuer=https://auth.example.com
 --redis_cluster=redis://redis-host:7000
 --redis_key_prefix=/aurora/thermos/user/
