@@ -43,6 +43,7 @@ cache = ExpiringDict(max_len=100, max_age_seconds=1800)
 # Cache for OIDC token validation results (5-minute TTL — tokens are short-lived)
 _oidc_cache = ExpiringDict(max_len=500, max_age_seconds=300)
 _oidc_cache_lock = threading.Lock()
+_TRUSTED_USER_HEADERS = ('X-Forwarded-User', 'X-Auth-Request-User')
 
 
 def _is_allowed_oidc_url(url):
@@ -184,11 +185,13 @@ class OidcBearerAuth(Plugin):
     with _oidc_cache_lock:
       cached = _oidc_cache.get(token)
     if cached is not None:
-      log.debug('OidcBearerAuth: cache hit token=%s result=%s', token_prefix, cached)
+      log.debug('OidcBearerAuth: cache hit token=%s', token_prefix)
+      if cached is False:
+        return None
       return cached
     if not self._userinfo_url:
       log.debug('OidcBearerAuth: no userinfo URL configured, rejecting token=%s', token_prefix)
-      return False
+      return None
     log.debug('OidcBearerAuth: validating token=%s via %s', token_prefix, self._userinfo_url)
     try:
       resp = _requests.get(
@@ -196,22 +199,82 @@ class OidcBearerAuth(Plugin):
           headers={'Authorization': 'Bearer ' + token},
           timeout=5,
       )
-      ok = resp.status_code == 200
       log.debug('OidcBearerAuth: userinfo response HTTP %s for token=%s', resp.status_code, token_prefix)
-      with _oidc_cache_lock:
-        _oidc_cache[token] = ok
-      if ok:
-        try:
-          sub = resp.json().get('sub', '?')
-        except (ValueError, KeyError):
-          sub = '?'
-        log.debug('OidcBearerAuth: token accepted, sub=%s token=%s', sub, token_prefix)
-      else:
+      if resp.status_code != 200:
+        with _oidc_cache_lock:
+          _oidc_cache[token] = False
         log.debug('OidcBearerAuth: token rejected (HTTP %s) token=%s', resp.status_code, token_prefix)
-      return ok
+        return None
+      try:
+        userinfo = resp.json()
+      except (ValueError, KeyError, TypeError):
+        log.debug('OidcBearerAuth: invalid userinfo JSON, token=%s', token_prefix)
+        with _oidc_cache_lock:
+          _oidc_cache[token] = False
+        return None
+      if not isinstance(userinfo, dict):
+        log.debug('OidcBearerAuth: userinfo payload is not an object, token=%s', token_prefix)
+        with _oidc_cache_lock:
+          _oidc_cache[token] = False
+        return None
+      with _oidc_cache_lock:
+        _oidc_cache[token] = userinfo
+      log.debug(
+          'OidcBearerAuth: token accepted, sub=%s email=%s token=%s',
+          userinfo.get('sub', '?'),
+          userinfo.get('email', '?'),
+          token_prefix,
+      )
+      return userinfo
     except Exception as e:
       log.warning('OidcBearerAuth: token validation error token=%s: %s', token_prefix, e)
+      return None
+
+  @staticmethod
+  def _normalize_user(value):
+    if not isinstance(value, str):
+      return None
+    normalized = value.strip().lower()
+    return normalized if normalized else None
+
+  def _trusted_user(self):
+    for header in _TRUSTED_USER_HEADERS:
+      user = self._normalize_user(request.headers.get(header))
+      if user:
+        return user
+    return None
+
+  def _userinfo_candidates(self, userinfo):
+    candidates = set()
+    for key in ('email', 'preferred_username', 'username', 'upn', 'sub'):
+      normalized = self._normalize_user(userinfo.get(key))
+      if normalized:
+        candidates.add(normalized)
+    return candidates
+
+  def authenticate_bearer(self, auth_header, path):
+    if not auth_header or not auth_header.startswith('Bearer '):
+      log.debug('OidcBearerAuth: missing/invalid Authorization scheme, path=%s', path)
       return False
+    trusted_user = self._trusted_user()
+    if not trusted_user:
+      log.debug('OidcBearerAuth: missing trusted user header, path=%s', path)
+      return False
+    userinfo = self._validate_token(auth_header[7:])
+    if userinfo is None:
+      log.debug('OidcBearerAuth: token invalid, path=%s', path)
+      return False
+    candidates = self._userinfo_candidates(userinfo)
+    if trusted_user not in candidates:
+      log.debug(
+          'OidcBearerAuth: trusted user mismatch, trusted=%s claims=%s path=%s',
+          trusted_user,
+          sorted(candidates),
+          path,
+      )
+      return False
+    log.debug('OidcBearerAuth: request authorised user=%s path=%s', trusted_user, path)
+    return True
 
   def apply(self, callback, context):
     def wrap(*args, **kwargs):
@@ -230,10 +293,9 @@ class OidcBearerAuth(Plugin):
             status=401,
             headers={'WWW-Authenticate': 'Bearer realm="%s"' % self._realm},
         )
-      if self._validate_token(auth_header[7:]):
-        log.debug('OidcBearerAuth: request authorised, path=%s', path)
+      if self.authenticate_bearer(auth_header, path):
         return callback(*args, **kwargs)
-      log.debug('OidcBearerAuth: token invalid, path=%s', path)
+      log.debug('OidcBearerAuth: bearer auth failed, path=%s', path)
       raise HTTPResponse(
           status=401,
           headers={'WWW-Authenticate': 'Bearer realm="%s"' % self._realm},
@@ -265,7 +327,7 @@ class CombinedAuth(Plugin):
       # 1) OIDC Bearer token — tried first
       if auth_header.startswith('Bearer '):
         log.debug('CombinedAuth: trying OIDC Bearer, path=%s', path)
-        if self._oidc._validate_token(auth_header[7:]):
+        if self._oidc.authenticate_bearer(auth_header, path):
           log.debug('CombinedAuth: OIDC Bearer accepted, path=%s', path)
           return callback(*args, **kwargs)
         log.debug('CombinedAuth: OIDC Bearer failed, falling back to Basic, path=%s', path)

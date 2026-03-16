@@ -183,10 +183,10 @@ def _discovery_resp(status=200, userinfo_endpoint='https://auth.example.com/user
     return resp
 
 
-def _userinfo_resp(status=200, sub='user@example.com'):
+def _userinfo_resp(status=200, sub='user@example.com', email='user@example.com'):
     resp = MagicMock()
     resp.status_code = status
-    resp.json.return_value = {'sub': sub}
+    resp.json.return_value = {'sub': sub, 'email': email}
     return resp
 
 
@@ -324,41 +324,42 @@ class TestOidcBearerAuthValidateToken(unittest.TestCase):
         self.plugin._userinfo_url = 'https://auth.example.com/userinfo'
 
     def test_cache_hit_true_skips_request(self):
-        _mod._oidc_cache['tok'] = True
-        self.assertTrue(self.plugin._validate_token('tok'))
+        _mod._oidc_cache['tok'] = {'sub': 'cached@example.com'}
+        result = self.plugin._validate_token('tok')
+        self.assertEqual(result.get('sub'), 'cached@example.com')
         _requests_stub.get.assert_not_called()
 
     def test_cache_hit_false_skips_request(self):
         _mod._oidc_cache['bad'] = False
-        self.assertFalse(self.plugin._validate_token('bad'))
+        self.assertIsNone(self.plugin._validate_token('bad'))
         _requests_stub.get.assert_not_called()
 
-    def test_valid_token_returns_true_and_caches(self):
+    def test_valid_token_returns_userinfo_and_caches(self):
         _requests_stub.get.return_value = _userinfo_resp(200)
-        self.assertTrue(self.plugin._validate_token('valid'))
-        self.assertTrue(_mod._oidc_cache.get('valid'))
+        result = self.plugin._validate_token('valid')
+        self.assertEqual(result.get('email'), 'user@example.com')
+        self.assertEqual(_mod._oidc_cache.get('valid').get('sub'), 'user@example.com')
 
-    def test_invalid_token_returns_false_and_caches(self):
+    def test_invalid_token_returns_none_and_caches_false(self):
         _requests_stub.get.return_value = _userinfo_resp(401)
-        self.assertFalse(self.plugin._validate_token('expired'))
+        self.assertIsNone(self.plugin._validate_token('expired'))
         self.assertFalse(_mod._oidc_cache.get('expired'))
 
     def test_no_userinfo_url_returns_false(self):
         self.plugin._userinfo_url = None
-        self.assertFalse(self.plugin._validate_token('tok'))
+        self.assertIsNone(self.plugin._validate_token('tok'))
         _requests_stub.get.assert_not_called()
 
     def test_request_exception_returns_false(self):
         _requests_stub.get.side_effect = Exception('timeout')
-        self.assertFalse(self.plugin._validate_token('tok'))
+        self.assertIsNone(self.plugin._validate_token('tok'))
 
-    def test_json_parse_error_does_not_raise(self):
+    def test_json_parse_error_returns_none(self):
         resp = MagicMock()
         resp.status_code = 200
         resp.json.side_effect = ValueError('bad json')
         _requests_stub.get.return_value = resp
-        # Token is still valid (HTTP 200); sub logging is best-effort
-        self.assertTrue(self.plugin._validate_token('tok2'))
+        self.assertIsNone(self.plugin._validate_token('tok2'))
 
 
 # ---------------------------------------------------------------------------
@@ -375,12 +376,17 @@ class TestOidcBearerAuthApply(unittest.TestCase):
         self.plugin._userinfo_url = 'https://auth.example.com/userinfo'
         self.callback = MagicMock(return_value='ok')
 
-    def _wrap(self, auth_header=None):
-        _mod.request.headers = {'Authorization': auth_header} if auth_header else {}
+    def _wrap(self, auth_header=None, trusted_user='user@example.com', trusted_header='X-Forwarded-User'):
+        headers = {}
+        if auth_header:
+            headers['Authorization'] = auth_header
+        if trusted_user:
+            headers[trusted_header] = trusted_user
+        _mod.request.headers = headers
         return self.plugin.apply(self.callback, MagicMock())
 
     def test_valid_bearer_calls_callback(self):
-        _mod._oidc_cache['good'] = True
+        _mod._oidc_cache['good'] = {'sub': 'user@example.com'}
         result = self._wrap('Bearer good')()
         self.assertEqual(result, 'ok')
 
@@ -399,6 +405,23 @@ class TestOidcBearerAuthApply(unittest.TestCase):
         with self.assertRaises(_FakeHTTPResponse) as ctx:
             self._wrap('Basic dXNlcjpwYXNz')()
         self.assertEqual(ctx.exception.status, 401)
+
+    def test_missing_trusted_header_raises_401(self):
+        _mod._oidc_cache['good'] = {'sub': 'user@example.com'}
+        with self.assertRaises(_FakeHTTPResponse) as ctx:
+            self._wrap('Bearer good', trusted_user=None)()
+        self.assertEqual(ctx.exception.status, 401)
+
+    def test_trusted_header_mismatch_raises_401(self):
+        _mod._oidc_cache['good'] = {'sub': 'user@example.com', 'email': 'user@example.com'}
+        with self.assertRaises(_FakeHTTPResponse) as ctx:
+            self._wrap('Bearer good', trusted_user='other@example.com')()
+        self.assertEqual(ctx.exception.status, 401)
+
+    def test_accepts_x_auth_request_user_header(self):
+        _mod._oidc_cache['good'] = {'sub': 'user@example.com'}
+        result = self._wrap('Bearer good', trusted_user='user@example.com', trusted_header='X-Auth-Request-User')()
+        self.assertEqual(result, 'ok')
 
 
 # ---------------------------------------------------------------------------
@@ -419,13 +442,16 @@ class TestCombinedAuth(unittest.TestCase):
         self.plugin = CombinedAuth(opts)
         self.plugin._oidc._userinfo_url = 'https://auth.example.com/userinfo'
 
-    def _wrap(self, bearer=None, basic_user=None, basic_pass=None):
-        _mod.request.headers = {'Authorization': 'Bearer ' + bearer} if bearer else {}
+    def _wrap(self, bearer=None, basic_user=None, basic_pass=None, trusted_user='user@example.com'):
+        headers = {'Authorization': 'Bearer ' + bearer} if bearer else {}
+        if trusted_user:
+            headers['X-Forwarded-User'] = trusted_user
+        _mod.request.headers = headers
         _mod.request.auth = (basic_user, basic_pass) if basic_user else None
         return self.plugin.apply(self.callback, MagicMock())
 
     def test_oidc_bearer_accepted(self):
-        _mod._oidc_cache['tok'] = True
+        _mod._oidc_cache['tok'] = {'sub': 'user@example.com'}
         result = self._wrap(bearer='tok')()
         self.assertEqual(result, 'ok')
 
@@ -438,6 +464,17 @@ class TestCombinedAuth(unittest.TestCase):
         _mod._oidc_cache['bad'] = False
         self.plugin._basic.get_user = MagicMock(return_value=_user_hash('alice', 'secret'))
         result = self._wrap(bearer='bad', basic_user='alice', basic_pass='secret')()
+        self.assertEqual(result, 'ok')
+
+    def test_basic_fallback_when_trusted_header_mismatch(self):
+        _mod._oidc_cache['tok'] = {'sub': 'user@example.com'}
+        self.plugin._basic.get_user = MagicMock(return_value=_user_hash('alice', 'secret'))
+        result = self._wrap(
+            bearer='tok',
+            trusted_user='other@example.com',
+            basic_user='alice',
+            basic_pass='secret',
+        )()
         self.assertEqual(result, 'ok')
 
     def test_wrong_basic_password_raises_401(self):
