@@ -15,6 +15,8 @@ import urllib.request
 import webbrowser
 from urllib.parse import urlparse, parse_qs
 
+from twitter.common import log
+
 from apache.aurora.client.cli import Noun, Verb
 from apache.aurora.client.cli.context import AuroraCommandContext
 from apache.aurora.client.cli.options import CommandOption
@@ -58,8 +60,11 @@ def _validate_https_url(url, label='URL'):
 
 def _oidc_discovery(discovery_url):
     _validate_https_url(discovery_url, 'OIDC discovery URL')
+    log.debug('OIDC discovery GET %s', discovery_url)
     with urllib.request.urlopen(discovery_url, timeout=_DISCOVERY_TIMEOUT) as resp:
-        return json.loads(resp.read())
+        result = json.loads(resp.read())
+    log.debug('OIDC discovery OK, keys: %s', list(result.keys()))
+    return result
 
 
 def _pkce_pair():
@@ -85,8 +90,11 @@ def _refresh_tokens(token_endpoint, client_id, refresh_token):
     }).encode()
     req = urllib.request.Request(token_endpoint, data=data, method='POST')
     req.add_header('Content-Type', 'application/x-www-form-urlencoded')
+    log.debug('Token refresh POST %s', token_endpoint)
     with urllib.request.urlopen(req, timeout=_TOKEN_TIMEOUT) as resp:
-        return json.loads(resp.read())
+        result = json.loads(resp.read())
+    log.debug('Token refresh response keys: %s', list(result.keys()))
+    return result
 
 
 def get_valid_session(cluster_name):
@@ -118,16 +126,14 @@ def get_valid_session(cluster_name):
         return load_session(cluster_name)
     except urllib.error.HTTPError as e:
         if e.code in (401, 403):
-            print(
-                f'Warning: Token refresh unauthorized (HTTP {e.code}). '
-                'Please re-authenticate with: aurora auth login',
-                file=sys.stderr,
-            )
+            log.warning(
+                'Token refresh unauthorized (HTTP %s). '
+                'Please re-authenticate with: aurora auth login', e.code)
         else:
-            print(f'Warning: Token refresh failed with HTTP {e.code}', file=sys.stderr)
+            log.warning('Token refresh failed with HTTP %s', e.code)
         return None
     except Exception as e:
-        print(f'Warning: Token refresh failed: {e}', file=sys.stderr)
+        log.warning('Token refresh failed: %s', e)
         return None
 
 
@@ -141,8 +147,11 @@ def _exchange_code(token_endpoint, client_id, code, redirect_uri, code_verifier)
     }).encode()
     req = urllib.request.Request(token_endpoint, data=data, method='POST')
     req.add_header('Content-Type', 'application/x-www-form-urlencoded')
+    log.debug('Token exchange POST %s', token_endpoint)
     with urllib.request.urlopen(req, timeout=_TOKEN_TIMEOUT) as resp:
-        return json.loads(resp.read())
+        result = json.loads(resp.read())
+    log.debug('Token exchange OK')
+    return result
 
 
 def _poll_device_token(token_endpoint, client_id, device_code, interval, expires_in):
@@ -155,6 +164,7 @@ def _poll_device_token(token_endpoint, client_id, device_code, interval, expires
     wait = interval
     while time.time() < deadline:
         time.sleep(wait)
+        log.debug('Device poll POST %s', token_endpoint)
         req = urllib.request.Request(
             token_endpoint,
             data=urllib.parse.urlencode(params).encode(),
@@ -171,9 +181,11 @@ def _poll_device_token(token_endpoint, client_id, device_code, interval, expires
                 raise RuntimeError(f'Token endpoint returned HTTP {e.code}')
             error = body.get('error', '')
             if error == 'authorization_pending':
+                log.debug('Device poll: authorization_pending')
                 continue
             elif error == 'slow_down':
                 wait = min(wait + 5, 60)
+                log.debug('Device poll: slow_down, new interval=%s', wait)
             elif error == 'expired_token':
                 raise RuntimeError('Device code expired. Please try again.')
             else:

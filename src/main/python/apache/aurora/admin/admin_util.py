@@ -16,6 +16,7 @@ import getpass
 import logging
 import optparse
 import os
+import re
 import subprocess
 from uuid import uuid1
 
@@ -28,6 +29,14 @@ from apache.aurora.common.cluster import Cluster
 from apache.aurora.common.clusters import CLUSTERS
 
 """Admin client utility functions shared between admin and maintenance modules."""
+
+_HOSTNAME_RE = re.compile(r'^[a-zA-Z0-9]([a-zA-Z0-9.\-]{0,251}[a-zA-Z0-9])?$')
+
+
+def _validate_hostname(hostname):
+  if not _HOSTNAME_RE.match(hostname):
+    die('Invalid hostname: %r' % hostname)
+  return hostname
 
 # TODO(maxim): Switch to CLI ConfigurationPlugin within AURORA-486.
 LOGGER_NAME = 'aurora_admin'
@@ -145,6 +154,9 @@ def parse_sla_percentage(percentage):
 
 def _parse_hostname_list(hostname_list):
   hostnames = [hostname.strip() for hostname in hostname_list.split(",")]
+  for host in hostnames:
+    if host:
+      _validate_hostname(host)
   if not hostnames:
     die('No valid hosts found.')
   return hostnames
@@ -153,6 +165,9 @@ def _parse_hostname_list(hostname_list):
 def _parse_hostname_file(filename):
   with open(filename, 'r') as hosts:
     hostnames = [hostname.strip() for hostname in hosts]
+  for host in hostnames:
+    if host:
+      _validate_hostname(host)
   if not hostnames:
     die('No valid hosts found in %s.' % filename)
   return hostnames

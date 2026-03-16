@@ -16,6 +16,7 @@ from __future__ import print_function
 
 import logging
 import posixpath
+import re
 import subprocess
 from multiprocessing.pool import ThreadPool
 
@@ -30,6 +31,9 @@ from apache.thermos.config.schema import ThermosContext
 
 from gen.apache.aurora.api.constants import LIVE_STATES
 from gen.apache.aurora.api.ttypes import JobKey, ResponseCode, TaskQuery
+
+
+_SSH_SAFE = re.compile(r'^[a-zA-Z0-9._-]+$')
 
 
 class CommandRunnerTrait(Cluster.Trait):
@@ -89,6 +93,12 @@ class DistributedCommandRunner(object):
 
   def execute(self, args):
     hostname, role, command = args
+    if not _SSH_SAFE.match(hostname):
+      self._log(logging.ERROR, 'Skipping invalid hostname: %r' % hostname)
+      return ''
+    if not _SSH_SAFE.match(role):
+      self._log(logging.ERROR, 'Skipping invalid role: %r' % role)
+      return ''
     ssh_command = ['ssh', '-n', '-q']
     ssh_command += self._ssh_options
     ssh_command += ['%s@%s' % (role, hostname), command]

@@ -213,6 +213,7 @@ class OidcDeviceAuth(AuthBase):
     if not token_endpoint or not client_id or not refresh_token:
       return None
     try:
+      log.debug('Token refresh POST %s', token_endpoint)
       resp = requests.post(
         token_endpoint,
         data={
@@ -223,6 +224,7 @@ class OidcDeviceAuth(AuthBase):
         timeout=10,
       )
       new_data = resp.json()
+      log.debug('Token refresh OK, has_access_token: %s', 'access_token' in new_data)
       if 'access_token' not in new_data:
         log.warning('Token refresh response missing access_token')
         return None
@@ -240,10 +242,13 @@ class OidcDeviceAuth(AuthBase):
   def _get_openid_config(self):
     if not self._issuer:
       return None
+    url = self._issuer.rstrip('/') + '/.well-known/openid-configuration'
     try:
-      resp = requests.get(
-        self._issuer.rstrip('/') + '/.well-known/openid-configuration', timeout=5)
-      return resp.json()
+      log.debug('OIDC config GET %s', url)
+      resp = requests.get(url, timeout=5)
+      result = resp.json()
+      log.debug('OIDC config OK, keys: %s', list(result.keys()))
+      return result
     except requests.RequestException as e:
       log.warning('Failed to fetch OIDC discovery document: %s', e)
       return None
@@ -260,11 +265,13 @@ class OidcDeviceAuth(AuthBase):
 
     # 1. Request device code
     try:
+      log.debug('Device auth POST %s', config['device_authorization_endpoint'])
       resp = requests.post(
         config['device_authorization_endpoint'],
         data={'client_id': self._client_id, 'scope': 'openid profile email'},
         timeout=5
       ).json()
+      log.debug('Device auth response keys: %s', list(resp.keys()))
     except requests.RequestException as e:
       log.error('Failed to initiate device flow: %s', e)
       return False
@@ -287,6 +294,7 @@ class OidcDeviceAuth(AuthBase):
       time.sleep(interval)
       print(".", end='', flush=True)
       try:
+        log.debug('Device poll POST %s', token_endpoint)
         token_resp = requests.post(
           token_endpoint,
           data={
@@ -297,6 +305,7 @@ class OidcDeviceAuth(AuthBase):
           timeout=10
         )
         data = token_resp.json()
+        log.debug('Device poll status: %s', token_resp.status_code)
 
         if token_resp.status_code == 200:
           self._access_token = data['access_token']

@@ -118,7 +118,7 @@ class AuroraExecutor(ExecutorBase, Observable):
 
     try:
       self._start_status_manager(driver, assigned_task)
-    except Exception:
+    except (AttributeError, RuntimeError, ValueError):
       log.error(traceback.format_exc())
       self._die(driver, mesos_pb2.TASK_FAILED, "Internal error")
 
@@ -213,7 +213,7 @@ class AuroraExecutor(ExecutorBase, Observable):
       propagate_deadline(self._chained_checker.stop, timeout=self._stop_timeout)
     except Timeout:
       log.error('Failed to stop all checkers within deadline.')
-    except Exception:
+    except (AttributeError, RuntimeError):
       log.error('Failed to stop health checkers:')
       log.error(traceback.format_exc())
 
@@ -221,7 +221,7 @@ class AuroraExecutor(ExecutorBase, Observable):
       propagate_deadline(self._runner.stop, timeout=self._stop_timeout)
     except Timeout:
       log.error('Failed to stop runner within deadline.')
-    except Exception:
+    except (AttributeError, RuntimeError):
       log.error('Failed to stop runner:')
       log.error(traceback.format_exc())
 
@@ -243,7 +243,7 @@ class AuroraExecutor(ExecutorBase, Observable):
     try:
       assigned_task = assigned_task_from_mesos_task(task)
       return assigned_task
-    except Exception:
+    except (AttributeError, ValueError, TypeError):
       log.fatal('Could not deserialize AssignedTask')
       log.fatal(traceback.format_exc())
       return None
