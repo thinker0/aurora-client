@@ -79,7 +79,7 @@ class SchedulerClient(object):
     if cluster.zk:
       return ZookeeperSchedulerClient(cluster, port=cluster.zk_port, auth=auth_handler, **kwargs)
     elif cluster.scheduler_uri:
-      return DirectSchedulerClient(cluster, cluster.scheduler_uri, auth=auth_handler, **kwargs)
+      return DirectSchedulerClient(cluster.scheduler_uri, cluster=cluster, auth=auth_handler, **kwargs)
     else:
       raise ValueError('"cluster" does not specify zk or scheduler_uri')
 
