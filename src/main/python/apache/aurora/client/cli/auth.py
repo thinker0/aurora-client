@@ -28,10 +28,19 @@ SESSION_DIR = os.path.expanduser('~/.aurora')
 _DISCOVERY_TIMEOUT = 10
 _TOKEN_TIMEOUT = 15
 _BROWSER_TIMEOUT = 300
+_DEFAULT_OIDC_SCOPE = 'openid email profile'
 
 
 def _session_file(cluster_name):
     return os.path.join(SESSION_DIR, f'session.{cluster_name}')
+
+
+def _normalize_oidc_scope(scope_value):
+    if not scope_value:
+        return _DEFAULT_OIDC_SCOPE
+    if isinstance(scope_value, (list, tuple)):
+        return ' '.join(str(s).strip() for s in scope_value if str(s).strip())
+    return str(scope_value).strip()
 
 
 def save_session(cluster_name, data):
@@ -82,12 +91,15 @@ def _is_browser_available():
     return bool(os.environ.get('DISPLAY') or os.environ.get('WAYLAND_DISPLAY'))
 
 
-def _refresh_tokens(token_endpoint, client_id, refresh_token):
-    data = urllib.parse.urlencode({
+def _refresh_tokens(token_endpoint, client_id, refresh_token, client_secret=None):
+    payload = {
         'grant_type': 'refresh_token',
         'client_id': client_id,
         'refresh_token': refresh_token,
-    }).encode()
+    }
+    if client_secret:
+        payload['client_secret'] = client_secret
+    data = urllib.parse.urlencode(payload).encode()
     req = urllib.request.Request(token_endpoint, data=data, method='POST')
     req.add_header('Content-Type', 'application/x-www-form-urlencoded')
     log.debug('Token refresh POST %s', token_endpoint)
@@ -113,16 +125,23 @@ def get_valid_session(cluster_name):
     refresh_token = session.get('refresh_token')
     token_endpoint = session.get('token_endpoint')
     client_id = session.get('client_id', 'aurora-cli')
+    client_secret = None
+    try:
+        cluster = CLUSTERS[cluster_name]
+        client_secret = getattr(cluster, 'oidc_client_secret', None)
+    except Exception:
+        client_secret = session.get('client_secret')
 
     if not refresh_token or not token_endpoint:
         return None
 
     try:
-        new_tokens = _refresh_tokens(token_endpoint, client_id, refresh_token)
+        new_tokens = _refresh_tokens(token_endpoint, client_id, refresh_token, client_secret)
         if 'refresh_token' not in new_tokens:
             new_tokens['refresh_token'] = refresh_token
         _persist_tokens(cluster_name, new_tokens,
-                        token_endpoint=token_endpoint, client_id=client_id)
+                        token_endpoint=token_endpoint, client_id=client_id,
+                        client_secret=client_secret)
         return load_session(cluster_name)
     except urllib.error.HTTPError as e:
         if e.code in (401, 403):
@@ -137,14 +156,17 @@ def get_valid_session(cluster_name):
         return None
 
 
-def _exchange_code(token_endpoint, client_id, code, redirect_uri, code_verifier):
-    data = urllib.parse.urlencode({
+def _exchange_code(token_endpoint, client_id, code, redirect_uri, code_verifier, client_secret=None):
+    payload = {
         'grant_type': 'authorization_code',
         'client_id': client_id,
         'code': code,
         'redirect_uri': redirect_uri,
         'code_verifier': code_verifier,
-    }).encode()
+    }
+    if client_secret:
+        payload['client_secret'] = client_secret
+    data = urllib.parse.urlencode(payload).encode()
     req = urllib.request.Request(token_endpoint, data=data, method='POST')
     req.add_header('Content-Type', 'application/x-www-form-urlencoded')
     log.debug('Token exchange POST %s', token_endpoint)
@@ -154,12 +176,14 @@ def _exchange_code(token_endpoint, client_id, code, redirect_uri, code_verifier)
     return result
 
 
-def _poll_device_token(token_endpoint, client_id, device_code, interval, expires_in):
+def _poll_device_token(token_endpoint, client_id, device_code, interval, expires_in, client_secret=None):
     params = {
         'grant_type': 'urn:ietf:params:oauth:grant-type:device_code',
         'client_id': client_id,
         'device_code': device_code,
     }
+    if client_secret:
+        params['client_secret'] = client_secret
     deadline = time.time() + expires_in
     wait = interval
     while time.time() < deadline:
@@ -197,7 +221,7 @@ def _poll_device_token(token_endpoint, client_id, device_code, interval, expires
 # Method 1 — Browser (Authorization Code + PKCE)
 # ---------------------------------------------------------------------------
 
-def _browser_auth(discovery, client_id, cluster_name):
+def _browser_auth(discovery, client_id, cluster_name, client_secret=None, scope=None):
     authorization_endpoint = discovery['authorization_endpoint']
     token_endpoint = discovery['token_endpoint']
     _validate_https_url(authorization_endpoint, 'authorization_endpoint')
@@ -256,7 +280,7 @@ def _browser_auth(discovery, client_id, cluster_name):
             'response_type': 'code',
             'client_id': client_id,
             'redirect_uri': redirect_uri,
-            'scope': 'openid email profile offline_access',
+            'scope': scope or _DEFAULT_OIDC_SCOPE,
             'code_challenge': challenge,
             'code_challenge_method': 'S256',
             'state': state,
@@ -283,12 +307,25 @@ def _browser_auth(discovery, client_id, cluster_name):
         return 1
 
     try:
-        tokens = _exchange_code(token_endpoint, client_id, auth_code[0], redirect_uri, verifier)
+        tokens = _exchange_code(
+            token_endpoint,
+            client_id,
+            auth_code[0],
+            redirect_uri,
+            verifier,
+            client_secret=client_secret,
+        )
     except Exception as e:
         print(f'Token exchange failed: {e}')
         return 1
 
-    _persist_tokens(cluster_name, tokens, token_endpoint=token_endpoint, client_id=client_id)
+    _persist_tokens(
+        cluster_name,
+        tokens,
+        token_endpoint=token_endpoint,
+        client_id=client_id,
+        client_secret=client_secret,
+    )
     return 0
 
 
@@ -296,7 +333,7 @@ def _browser_auth(discovery, client_id, cluster_name):
 # Method 2 — Device Authorization Flow (headless / server)
 # ---------------------------------------------------------------------------
 
-def _device_auth(discovery, client_id, cluster_name):
+def _device_auth(discovery, client_id, cluster_name, client_secret=None, scope=None):
     device_endpoint = discovery.get('device_authorization_endpoint')
     if not device_endpoint:
         print('Error: OIDC provider does not support Device Authorization Flow.')
@@ -311,13 +348,42 @@ def _device_auth(discovery, client_id, cluster_name):
         device_endpoint,
         data=urllib.parse.urlencode({
             'client_id': client_id,
-            'scope': 'openid email profile offline_access',
+            'scope': scope or _DEFAULT_OIDC_SCOPE,
+            **({'client_secret': client_secret} if client_secret else {}),
         }).encode(),
         method='POST',
     )
     req.add_header('Content-Type', 'application/x-www-form-urlencoded')
-    with urllib.request.urlopen(req, timeout=_TOKEN_TIMEOUT) as resp:
-        dr = json.loads(resp.read())
+    try:
+        with urllib.request.urlopen(req, timeout=_TOKEN_TIMEOUT) as resp:
+            dr = json.loads(resp.read())
+    except urllib.error.HTTPError as e:
+        body = ''
+        try:
+            body = e.read().decode('utf-8', errors='replace')
+        except Exception:
+            body = ''
+
+        details = f'HTTP {e.code}'
+        if body:
+            try:
+                parsed = json.loads(body)
+                error = parsed.get('error')
+                description = parsed.get('error_description')
+                if error and description:
+                    details = f'HTTP {e.code}, {error}: {description}'
+                elif error:
+                    details = f'HTTP {e.code}, {error}'
+                else:
+                    details = f'HTTP {e.code}, {body}'
+            except ValueError:
+                details = f'HTTP {e.code}, {body}'
+
+        print('Device authorization request failed.')
+        print(f'Endpoint: {device_endpoint}')
+        print(f'Client ID: {client_id}')
+        print(f'Reason: {details}')
+        return 1
 
     user_code = dr['user_code']
     verification_uri = dr.get('verification_uri_complete') or dr['verification_uri']
@@ -340,16 +406,29 @@ def _device_auth(discovery, client_id, cluster_name):
     print()
 
     try:
-        tokens = _poll_device_token(token_endpoint, client_id, device_code, interval, expires_in)
+        tokens = _poll_device_token(
+            token_endpoint,
+            client_id,
+            device_code,
+            interval,
+            expires_in,
+            client_secret=client_secret,
+        )
     except RuntimeError as e:
         print(f'Authentication failed: {e}')
         return 1
 
-    _persist_tokens(cluster_name, tokens, token_endpoint=token_endpoint, client_id=client_id)
+    _persist_tokens(
+        cluster_name,
+        tokens,
+        token_endpoint=token_endpoint,
+        client_id=client_id,
+        client_secret=client_secret,
+    )
     return 0
 
 
-def _persist_tokens(cluster_name, tokens, token_endpoint=None, client_id=None):
+def _persist_tokens(cluster_name, tokens, token_endpoint=None, client_id=None, client_secret=None):
     if 'access_token' not in tokens:
         raise ValueError('Token response missing access_token')
     tokens['cluster'] = cluster_name
@@ -358,6 +437,8 @@ def _persist_tokens(cluster_name, tokens, token_endpoint=None, client_id=None):
         tokens['token_endpoint'] = token_endpoint
     if client_id:
         tokens['client_id'] = client_id
+    if client_secret:
+        tokens['client_secret'] = client_secret
     save_session(cluster_name, tokens)
     print(f'Authenticated. Session saved to {_session_file(cluster_name)}')
 
@@ -397,11 +478,13 @@ class LoginVerb(Verb):
         cluster = CLUSTERS[cluster_name]
         oidc_issuer = getattr(cluster, 'oidc_issuer', None)
         client_id = getattr(cluster, 'oidc_client_id', 'aurora-cli')
+        client_secret = getattr(cluster, 'oidc_client_secret', None)
+        scope = _normalize_oidc_scope(getattr(cluster, 'oidc_scope', None))
 
         if not oidc_issuer:
             context.print_err(
                 f'Cluster "{cluster_name}" has no oidc_issuer.\n'
-                'Add "oidc_issuer" (and optionally "oidc_client_id") to clusters.json.'
+                'Add "oidc_issuer" (and optionally "oidc_client_id", "oidc_scope") to clusters.json.'
             )
             return 1
 
@@ -416,9 +499,11 @@ class LoginVerb(Verb):
         use_device = context.options.device or not _is_browser_available()
 
         if use_device:
-            return _device_auth(discovery, client_id, cluster_name)
+            return _device_auth(
+                discovery, client_id, cluster_name, client_secret=client_secret, scope=scope)
         else:
-            return _browser_auth(discovery, client_id, cluster_name)
+            return _browser_auth(
+                discovery, client_id, cluster_name, client_secret=client_secret, scope=scope)
 
 
 class Auth(Noun):

@@ -401,6 +401,17 @@ class TestOidcBearerAuthApply(unittest.TestCase):
             self._wrap(None)()
         self.assertEqual(ctx.exception.status, 401)
 
+    def test_no_auth_header_with_trusted_header_only_enabled_calls_callback(self):
+        self.plugin._allow_trusted_header_without_bearer = True
+        result = self._wrap(None, trusted_user='user@example.com')()
+        self.assertEqual(result, 'ok')
+
+    def test_no_auth_header_with_trusted_header_only_enabled_but_missing_header_raises_401(self):
+        self.plugin._allow_trusted_header_without_bearer = True
+        with self.assertRaises(_FakeHTTPResponse) as ctx:
+            self._wrap(None, trusted_user=None)()
+        self.assertEqual(ctx.exception.status, 401)
+
     def test_basic_scheme_not_accepted_raises_401(self):
         with self.assertRaises(_FakeHTTPResponse) as ctx:
             self._wrap('Basic dXNlcjpwYXNz')()
@@ -487,6 +498,11 @@ class TestCombinedAuth(unittest.TestCase):
         with self.assertRaises(_FakeHTTPResponse) as ctx:
             self._wrap()()
         self.assertEqual(ctx.exception.status, 401)
+
+    def test_trusted_header_only_accepted_when_enabled(self):
+        self.plugin._oidc._allow_trusted_header_without_bearer = True
+        result = self._wrap(bearer=None, basic_user=None, basic_pass=None, trusted_user='user@example.com')()
+        self.assertEqual(result, 'ok')
 
 
 # ---------------------------------------------------------------------------

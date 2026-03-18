@@ -138,6 +138,15 @@ app.add_option(
          'Required for oauth2-proxy (e.g. https://oauth2proxy.example.com/oauth2/userinfo).')
 
 app.add_option(
+    '--oidc-allow-trusted-header-without-bearer',
+    default=False,
+    action='store_true',
+    dest='oidc_allow_trusted_header_without_bearer',
+    help='Allow authentication based only on trusted user headers '
+         '(X-Forwarded-User or X-Auth-Request-User) when Authorization Bearer token '
+         'is missing. Use only behind a trusted reverse proxy.')
+
+app.add_option(
     '--redis-cluster',
     default='redis://localhost:6379',
     dest='redis_cluster',

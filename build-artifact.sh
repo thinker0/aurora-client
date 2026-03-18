@@ -15,6 +15,35 @@
 
 set -eux
 
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "${ROOT_DIR}"
+
+CLEAN_BUILD="${CLEAN_BUILD:-0}"
+
+clean_workspace() {
+  echo "Cleaning previous build outputs..."
+  rm -rf artifacts target
+  rm -f build.tar.gz
+}
+
+ARGS=()
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --clean)
+      CLEAN_BUILD=1
+      shift
+      ;;
+    *)
+      ARGS+=("$1")
+      shift
+      ;;
+  esac
+done
+
+if [[ "${CLEAN_BUILD}" == "1" ]]; then
+  clean_workspace
+fi
+
 # Isolate docker buildx configuration to bypass ~/.docker/buildx permission issues on Rancher Desktop
 export BUILDX_CONFIG=/tmp/docker-buildx-aurora
 docker buildx create --name aurora-builder --use || true
@@ -142,29 +171,29 @@ run_build_platform() {
   ls -R "$artifact_dir"
 }
 
-case $# in
+case ${#ARGS[@]} in
   2)
     for builder in $(print_available_builders); do
-      echo $builder
-      run_build $builder $1 $2
+      echo "$builder"
+      run_build "$builder" "${ARGS[0]}" "${ARGS[1]}"
     done
     ;;
 
   3)
-    if [ -d "builder/rpm/$1" ]; then
-      run_build "$@"
+    if [ -d "builder/rpm/${ARGS[0]}" ]; then
+      run_build "${ARGS[0]}" "${ARGS[1]}" "${ARGS[2]}"
     else
-      run_build_platform "$@"
+      run_build_platform "${ARGS[0]}" "${ARGS[1]}" "${ARGS[2]}"
     fi
     ;;
 
   *)
     echo 'usage:'
     echo 'to build all artifacts:'
-    echo "  $0 RELEASE_TAR AURORA_VERSION"
+    echo "  $0 [--clean] RELEASE_TAR AURORA_VERSION"
     echo
     echo 'or to build a specific artifact:'
-    echo "  $0 BUILDER RELEASE_TAR AURORA_VERSION"
+    echo "  $0 [--clean] BUILDER RELEASE_TAR AURORA_VERSION"
     echo
     echo 'Where BUILDER is a builder directory in:'
     print_available_builders

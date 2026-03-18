@@ -74,7 +74,9 @@ _client_stub.cli = _cli_stub
 from apache.aurora.client.cli.auth import (  # noqa: E402
     Auth,
     LoginVerb,
+    _device_auth,
     _is_browser_available,
+    _normalize_oidc_scope,
     _pkce_pair,
     _persist_tokens,
     _poll_device_token,
@@ -131,6 +133,17 @@ class TestIsBrowserAvailable(unittest.TestCase):
                        if k not in ('DISPLAY', 'WAYLAND_DISPLAY')}
                 with patch.dict(os.environ, env, clear=True):
                     self.assertFalse(_is_browser_available())
+
+
+class TestOidcScopeNormalization(unittest.TestCase):
+    def test_default_scope(self):
+        self.assertEqual(_normalize_oidc_scope(None), 'openid email profile')
+
+    def test_list_scope(self):
+        self.assertEqual(
+            _normalize_oidc_scope(['openid', 'email', 'profile']),
+            'openid email profile',
+        )
 
 
 class TestPkcePair(unittest.TestCase):
@@ -296,6 +309,35 @@ class TestPollDeviceToken(unittest.TestCase):
         self.assertIn('500', str(ctx.exception))
 
 
+class TestDeviceAuth(unittest.TestCase):
+    @patch('builtins.print')
+    @patch('urllib.request.urlopen')
+    def test_returns_error_with_http_401_details(self, mock_urlopen, mock_print):
+        err = urllib.error.HTTPError(
+            url='https://auth.example.com/device',
+            code=401,
+            msg='Unauthorized',
+            hdrs=None,
+            fp=BytesIO(json.dumps({
+                'error': 'invalid_client',
+                'error_description': 'Client is not allowed for this grant type.',
+            }).encode()),
+        )
+        mock_urlopen.side_effect = err
+
+        discovery = {
+            'device_authorization_endpoint': 'https://auth.example.com/device',
+            'token_endpoint': 'https://auth.example.com/token',
+        }
+        result = _device_auth(discovery, 'aurora-cli', 'lad-beta')
+        self.assertEqual(result, 1)
+
+        messages = ' '.join(str(call.args[0]) for call in mock_print.call_args_list if call.args)
+        self.assertIn('Device authorization request failed.', messages)
+        self.assertIn('Client ID: aurora-cli', messages)
+        self.assertIn('invalid_client', messages)
+
+
 class TestLoginVerbExecute(unittest.TestCase):
     def _ctx(self, cluster_name='mycluster', device=False):
         ctx = MagicMock()
@@ -303,10 +345,12 @@ class TestLoginVerbExecute(unittest.TestCase):
         ctx.options.device = device
         return ctx
 
-    def _cluster(self, issuer='https://auth.example.com'):
-        c = MagicMock(spec=['oidc_issuer', 'oidc_client_id'])
+    def _cluster(self, issuer='https://auth.example.com', client_secret=None, scope=None):
+        c = MagicMock(spec=['oidc_issuer', 'oidc_client_id', 'oidc_client_secret', 'oidc_scope'])
         c.oidc_issuer = issuer
         c.oidc_client_id = 'aurora-cli'
+        c.oidc_client_secret = client_secret
+        c.oidc_scope = scope
         return c
 
     def test_unknown_cluster_returns_error(self):
@@ -334,6 +378,27 @@ class TestLoginVerbExecute(unittest.TestCase):
         with patch('apache.aurora.client.cli.auth.CLUSTERS', {'mycluster': self._cluster()}):
             self.assertEqual(verb.execute(self._ctx(device=True)), 0)
         mock_device.assert_called_once()
+
+    @patch('apache.aurora.client.cli.auth._device_auth', return_value=0)
+    @patch('apache.aurora.client.cli.auth._oidc_discovery', return_value={})
+    def test_device_flow_forwards_client_secret(self, _disc, mock_device):
+        verb = LoginVerb()
+        cluster = self._cluster(client_secret='top-secret')
+        with patch('apache.aurora.client.cli.auth.CLUSTERS', {'mycluster': cluster}):
+            self.assertEqual(verb.execute(self._ctx(device=True)), 0)
+        _, kwargs = mock_device.call_args
+        self.assertEqual(kwargs['client_secret'], 'top-secret')
+        self.assertEqual(kwargs['scope'], 'openid email profile')
+
+    @patch('apache.aurora.client.cli.auth._device_auth', return_value=0)
+    @patch('apache.aurora.client.cli.auth._oidc_discovery', return_value={})
+    def test_device_flow_uses_cluster_scope(self, _disc, mock_device):
+        verb = LoginVerb()
+        cluster = self._cluster(scope='openid profile')
+        with patch('apache.aurora.client.cli.auth.CLUSTERS', {'mycluster': cluster}):
+            self.assertEqual(verb.execute(self._ctx(device=True)), 0)
+        _, kwargs = mock_device.call_args
+        self.assertEqual(kwargs['scope'], 'openid profile')
 
     @patch('apache.aurora.client.cli.auth._device_auth', return_value=0)
     @patch('apache.aurora.client.cli.auth._is_browser_available', return_value=False)
@@ -407,7 +472,7 @@ class TestGetValidSession(unittest.TestCase):
             result = get_valid_session('c')
         self.assertEqual(result['access_token'], 'new')
         mock_refresh.assert_called_once_with(
-            'https://auth.example.com/token', 'aurora-cli', 'reftok'
+            'https://auth.example.com/token', 'aurora-cli', 'reftok', None
         )
 
     @patch('apache.aurora.client.cli.auth._refresh_tokens', side_effect=Exception('network'))

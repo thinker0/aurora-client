@@ -138,6 +138,13 @@ class OidcBearerAuth(Plugin):
   def __init__(self, options, realm='Thermos Observer'):
     self._issuer = getattr(options, 'oidc_issuer', None)
     self._realm = realm
+    flag = getattr(options, 'oidc_allow_trusted_header_without_bearer', False)
+    if isinstance(flag, bool):
+      self._allow_trusted_header_without_bearer = flag
+    elif isinstance(flag, str):
+      self._allow_trusted_header_without_bearer = flag.strip().lower() in ('1', 'true', 'yes', 'on')
+    else:
+      self._allow_trusted_header_without_bearer = False
     # Direct userinfo URL takes precedence over OIDC discovery (supports oauth2-proxy)
     _raw_url = getattr(options, 'oidc_userinfo_url', None)
     self._userinfo_url = _raw_url if isinstance(_raw_url, str) and _raw_url else None
@@ -252,6 +259,14 @@ class OidcBearerAuth(Plugin):
         candidates.add(normalized)
     return candidates
 
+  def authenticate_trusted_header_only(self, path):
+    trusted_user = self._trusted_user()
+    if not trusted_user:
+      log.debug('OidcBearerAuth: trusted-header-only auth failed (missing trusted user), path=%s', path)
+      return False
+    log.debug('OidcBearerAuth: trusted-header-only auth accepted user=%s path=%s', trusted_user, path)
+    return True
+
   def authenticate_bearer(self, auth_header, path):
     if not auth_header or not auth_header.startswith('Bearer '):
       log.debug('OidcBearerAuth: missing/invalid Authorization scheme, path=%s', path)
@@ -281,6 +296,8 @@ class OidcBearerAuth(Plugin):
       auth_header = request.headers.get('Authorization', '')
       path = getattr(request, 'path', '?')
       if not auth_header:
+        if self._allow_trusted_header_without_bearer and self.authenticate_trusted_header_only(path):
+          return callback(*args, **kwargs)
         log.debug('OidcBearerAuth: no Authorization header, path=%s', path)
         raise HTTPResponse(
             status=401,
@@ -332,6 +349,12 @@ class CombinedAuth(Plugin):
           return callback(*args, **kwargs)
         log.debug('CombinedAuth: OIDC Bearer failed, falling back to Basic, path=%s', path)
       else:
+        if (
+            self._oidc._allow_trusted_header_without_bearer
+            and self._oidc.authenticate_trusted_header_only(path)
+        ):
+          log.debug('CombinedAuth: trusted-header-only auth accepted, path=%s', path)
+          return callback(*args, **kwargs)
         log.debug('CombinedAuth: no Bearer header, trying Basic only, path=%s', path)
 
       # 2) HTTP Basic credentials
