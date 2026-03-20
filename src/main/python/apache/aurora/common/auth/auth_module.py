@@ -224,15 +224,22 @@ class SessionTokenAuth(AuthBase):
         with open(self._token_file, 'r') as f:
           self._token = f.read().strip()
       if not self._token:
-        session = _load_session_data(_cluster_session_file(self._cluster))
+        session_path = _cluster_session_file(self._cluster)
+        session = _load_session_data(session_path)
         if session:
           if session.get('token_type') == 'aurora_cookie' and session.get('aurora_token'):
             # Scheduler-issued cookie: send as Cookie header, not Bearer.
             self._aurora_token = session['aurora_token']
             log.debug('Loaded aurora_token cookie session for cluster %s', self._cluster)
           else:
-            self._token = _load_access_token_from_session_file(
-                _cluster_session_file(self._cluster))
+            # OIDC session: refresh if expired, then extract access_token.
+            expires_at = session.get('expires_at', 0)
+            if time.time() >= expires_at - 60 and session.get('refresh_token'):
+              refreshed = _refresh_session_data(session, default_client_id='aurora-cli')
+              if refreshed is not None:
+                _save_session_data(session_path, refreshed)
+                session = refreshed
+            self._token = session.get('access_token')
     except (OSError, UnicodeDecodeError) as e:
       log.warning('Failed to load session token from %s: %s', self._token_file, e)
 

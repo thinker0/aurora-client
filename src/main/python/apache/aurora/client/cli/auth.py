@@ -355,6 +355,7 @@ def _scheduler_browser_auth(scheduler_base_url, cluster_name, redirect_port=0):
     the resulting ``aurora_token`` cookie value back to a local callback server.
     This avoids registering a localhost redirect_uri with the OIDC provider.
     """
+    _validate_https_url(scheduler_base_url, 'scheduler_base_url')
     bind_port = int(redirect_port) if redirect_port else 0
 
     aurora_token = [None]
