@@ -7,6 +7,7 @@ from apache.aurora.common.auth.auth_module import (
   OidcDeviceAuthModule,
   ProxySessionAuth,
   SessionTokenAuth,
+  _refresh_session_data,
 )
 
 class TestAuthModules(unittest.TestCase):
@@ -86,3 +87,65 @@ class TestAuthModules(unittest.TestCase):
         request.headers = {}
         auth(request)
         self.assertEqual(request.headers['Authorization'], 'Bearer new-token')
+
+  @patch('apache.aurora.common.auth.auth_module.requests.post')
+  def test_refresh_session_data_includes_client_secret(self, mock_post):
+    mock_post.return_value = MagicMock(
+      json=MagicMock(return_value={'access_token': 'new', 'expires_in': 3600})
+    )
+    session = {
+      'access_token': 'old',
+      'expires_at': 1,
+      'refresh_token': 'ref',
+      'token_endpoint': 'https://auth.example.com/token',
+      'client_id': 'aurora-cli',
+      'client_secret': 'supersecret',
+    }
+    result = _refresh_session_data(session)
+    self.assertIsNotNone(result)
+    _, kwargs = mock_post.call_args
+    self.assertEqual(kwargs['data']['client_secret'], 'supersecret')
+
+  @patch('apache.aurora.common.auth.auth_module.requests.post')
+  def test_refresh_session_data_omits_client_secret_when_absent(self, mock_post):
+    mock_post.return_value = MagicMock(
+      json=MagicMock(return_value={'access_token': 'new', 'expires_in': 3600})
+    )
+    session = {
+      'access_token': 'old',
+      'expires_at': 1,
+      'refresh_token': 'ref',
+      'token_endpoint': 'https://auth.example.com/token',
+      'client_id': 'aurora-cli',
+    }
+    result = _refresh_session_data(session)
+    self.assertIsNotNone(result)
+    _, kwargs = mock_post.call_args
+    self.assertNotIn('client_secret', kwargs['data'])
+
+  @patch('apache.aurora.common.auth.auth_module.requests.post')
+  def test_oidc_device_auth_refresh_includes_client_secret(self, mock_post):
+    mock_post.return_value = MagicMock(
+      json=MagicMock(return_value={'access_token': 'new', 'expires_in': 3600})
+    )
+    with patch('os.path.exists', return_value=False):
+      auth = OidcDeviceAuth(cluster_name='prod')
+    session = {
+      'access_token': 'old',
+      'refresh_token': 'ref',
+      'token_endpoint': 'https://auth.example.com/token',
+      'client_id': 'aurora-cli',
+      'client_secret': 'topsecret',
+    }
+    result = auth._refresh_token(session)
+    self.assertIsNotNone(result)
+    _, kwargs = mock_post.call_args
+    self.assertEqual(kwargs['data']['client_secret'], 'topsecret')
+
+  def test_session_token_auth_no_token_passes_request_unchanged(self):
+    with patch('os.path.exists', return_value=False):
+      auth = SessionTokenAuth(cluster_name='no-token-cluster')
+    request = MagicMock()
+    request.headers = {}
+    auth(request)
+    self.assertNotIn('Authorization', request.headers)

@@ -76,17 +76,21 @@ def _refresh_session_data(session_data, default_client_id=None):
   token_endpoint = session_data.get('token_endpoint')
   client_id = session_data.get('client_id') or default_client_id
   refresh_token = session_data.get('refresh_token')
+  client_secret = session_data.get('client_secret')
   if not token_endpoint or not client_id or not refresh_token:
     return None
   try:
+    payload = {
+      'grant_type': 'refresh_token',
+      'client_id': client_id,
+      'refresh_token': refresh_token,
+    }
+    if client_secret:
+      payload['client_secret'] = client_secret
     log.debug('Token refresh POST %s', token_endpoint)
     resp = requests.post(
       token_endpoint,
-      data={
-        'grant_type': 'refresh_token',
-        'client_id': client_id,
-        'refresh_token': refresh_token,
-      },
+      data=payload,
       timeout=10,
     )
     new_data = resp.json()
@@ -292,17 +296,21 @@ class OidcDeviceAuth(AuthBase):
     token_endpoint = session_data.get('token_endpoint')
     client_id = session_data.get('client_id') or self._client_id
     refresh_token = session_data.get('refresh_token')
+    client_secret = session_data.get('client_secret')
     if not token_endpoint or not client_id or not refresh_token:
       return None
     try:
+      payload = {
+        'grant_type': 'refresh_token',
+        'client_id': client_id,
+        'refresh_token': refresh_token,
+      }
+      if client_secret:
+        payload['client_secret'] = client_secret
       log.debug('Token refresh POST %s', token_endpoint)
       resp = requests.post(
         token_endpoint,
-        data={
-          'grant_type': 'refresh_token',
-          'client_id': client_id,
-          'refresh_token': refresh_token,
-        },
+        data=payload,
         timeout=10,
       )
       new_data = resp.json()

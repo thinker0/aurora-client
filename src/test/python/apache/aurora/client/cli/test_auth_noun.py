@@ -418,6 +418,43 @@ class TestLoginVerbExecute(unittest.TestCase):
             self.assertEqual(verb.execute(self._ctx()), 0)
         mock_browser.assert_called_once()
 
+    @patch('apache.aurora.client.cli.auth._browser_auth', return_value=0)
+    @patch('apache.aurora.client.cli.auth._is_browser_available', return_value=True)
+    @patch('apache.aurora.client.cli.auth._oidc_discovery', return_value={})
+    def test_browser_flow_forwards_redirect_port(self, _disc, _avail, mock_browser):
+        verb = LoginVerb()
+        cluster = self._cluster()
+        cluster.oidc_redirect_port = 8850
+        with patch('apache.aurora.client.cli.auth.CLUSTERS', {'mycluster': cluster}):
+            self.assertEqual(verb.execute(self._ctx()), 0)
+        _, kwargs = mock_browser.call_args
+        self.assertEqual(kwargs['redirect_port'], 8850)
+
+    @patch('apache.aurora.client.cli.auth._browser_auth', return_value=0)
+    @patch('apache.aurora.client.cli.auth._is_browser_available', return_value=True)
+    @patch('apache.aurora.client.cli.auth._oidc_discovery', return_value={})
+    def test_browser_flow_default_redirect_port_is_zero(self, _disc, _avail, mock_browser):
+        verb = LoginVerb()
+        with patch('apache.aurora.client.cli.auth.CLUSTERS', {'mycluster': self._cluster()}):
+            self.assertEqual(verb.execute(self._ctx()), 0)
+        _, kwargs = mock_browser.call_args
+        self.assertEqual(kwargs['redirect_port'], 0)
+
+    @patch('apache.aurora.client.cli.auth._is_browser_available', return_value=True)
+    @patch('apache.aurora.client.cli.auth._oidc_discovery', return_value={'authorization_endpoint': 'https://a', 'token_endpoint': 'https://b'})
+    def test_browser_flow_port_in_use_returns_error(self, _disc, _avail):
+        verb = LoginVerb()
+        cluster = self._cluster()
+        cluster.oidc_redirect_port = 8850
+        with patch('apache.aurora.client.cli.auth.CLUSTERS', {'mycluster': cluster}):
+            with patch('apache.aurora.client.cli.auth._validate_https_url'):
+                with patch('apache.aurora.client.cli.auth.socketserver.TCPServer') as mock_tcp:
+                    instance = mock_tcp.return_value
+                    instance.server_bind.side_effect = OSError('Address already in use')
+                    with patch('builtins.print'):
+                        result = verb.execute(self._ctx())
+        self.assertEqual(result, 1)
+
     @patch('apache.aurora.client.cli.auth._device_auth', return_value=0)
     @patch('apache.aurora.client.cli.auth._is_browser_available', return_value=False)
     @patch('apache.aurora.client.cli.auth._oidc_discovery', return_value={})

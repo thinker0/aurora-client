@@ -221,7 +221,7 @@ def _poll_device_token(token_endpoint, client_id, device_code, interval, expires
 # Method 1 — Browser (Authorization Code + PKCE)
 # ---------------------------------------------------------------------------
 
-def _browser_auth(discovery, client_id, cluster_name, client_secret=None, scope=None):
+def _browser_auth(discovery, client_id, cluster_name, client_secret=None, scope=None, redirect_port=0):
     authorization_endpoint = discovery['authorization_endpoint']
     token_endpoint = discovery['token_endpoint']
     _validate_https_url(authorization_endpoint, 'authorization_endpoint')
@@ -266,11 +266,25 @@ def _browser_auth(discovery, client_id, cluster_name, client_secret=None, scope=
         def log_message(self, fmt, *args):
             pass
 
-    # Bind to port 0 atomically to avoid TOCTOU race between _free_port() and server start
-    server = socketserver.TCPServer(('127.0.0.1', 0), _CallbackHandler, bind_and_activate=False)
+    # Use configured port when provided so operators can pre-register a fixed redirect_uri.
+    # Port 0 lets the OS pick a free port (random — most providers will reject it).
+    bind_port = int(redirect_port) if redirect_port else 0
+    server = socketserver.TCPServer(('127.0.0.1', bind_port), _CallbackHandler, bind_and_activate=False)
     server.allow_reuse_address = True
-    server.server_bind()
-    server.server_activate()
+    try:
+        server.server_bind()
+        server.server_activate()
+    except OSError as e:
+        server.server_close()
+        if bind_port:
+            print(
+                f'Failed to bind to port {bind_port}: {e}\n'
+                f'Ensure no other process is using port {bind_port}, '
+                f'or remove "oidc_redirect_port" from the cluster config to use a random port.'
+            )
+        else:
+            print(f'Failed to start local callback server: {e}')
+        return 1
     port = server.socket.getsockname()[1]
 
     redirect_uri = f'http://localhost:{port}/callback'
@@ -480,6 +494,7 @@ class LoginVerb(Verb):
         client_id = getattr(cluster, 'oidc_client_id', 'aurora-cli')
         client_secret = getattr(cluster, 'oidc_client_secret', None)
         scope = _normalize_oidc_scope(getattr(cluster, 'oidc_scope', None))
+        redirect_port = getattr(cluster, 'oidc_redirect_port', 0) or 0
 
         if not oidc_issuer:
             context.print_err(
@@ -503,7 +518,8 @@ class LoginVerb(Verb):
                 discovery, client_id, cluster_name, client_secret=client_secret, scope=scope)
         else:
             return _browser_auth(
-                discovery, client_id, cluster_name, client_secret=client_secret, scope=scope)
+                discovery, client_id, cluster_name,
+                client_secret=client_secret, scope=scope, redirect_port=redirect_port)
 
 
 class Auth(Noun):

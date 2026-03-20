@@ -5,6 +5,32 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [Unreleased] — 2026-03-20
+
+### Changed
+- **Default `auth_mechanism` changed from `UNAUTHENTICATED` to `SESSION_TOKEN`**
+  (`client/api/scheduler_client.py`):
+  Clusters that do not specify `auth_mechanism` in `clusters.json` now automatically
+  inject `Authorization: Bearer` from the OIDC session file written by `aurora auth login`.
+  `SessionTokenAuth` passes the request unchanged when no session file is present, so the
+  change is fully backward-compatible with unauthenticated clusters.
+- **Browser OIDC flow now supports a fixed `redirect_uri` port** (`client/cli/auth.py`):
+  Added `oidc_redirect_port` cluster config key. When set, the local callback server binds
+  to that port so the operator can pre-register `http://localhost:<port>/callback` in the
+  OIDC client application. Previously only a random port was used, which caused
+  `redirect_uri_mismatch` errors with most OIDC providers.
+- **`client_secret` forwarded during token refresh** (`common/auth/auth_module.py`):
+  `_refresh_session_data()` and `OidcDeviceAuth._refresh_token()` now read
+  `client_secret` from the stored session JSON and include it in the `refresh_token`
+  grant POST. This fixes silent refresh failures for confidential OIDC clients.
+
+### Fixed
+- `_browser_auth()`: `OSError` on `TCPServer.server_bind()` (e.g. port already in use when
+  `oidc_redirect_port` is configured) is now caught and reported to the user with a
+  human-readable error message instead of propagating as an unhandled exception.
+
+---
+
 ## [Unreleased] — 2026-03-16
 
 ### Changed

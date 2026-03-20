@@ -100,30 +100,132 @@ Aurora Client supports multiple authentication mechanisms, configured per-cluste
 ### OIDC Login (recommended)
 
 ```bash
-# Browser flow (macOS / desktop)
+# Browser flow (macOS / desktop) — Authorization Code + PKCE
 aurora auth login <cluster>
 
 # Device Authorization Flow (headless / server)
 aurora auth login --device <cluster>
 ```
 
-Sessions are stored in `~/.aurora/session.<cluster>`.
-Tokens are automatically refreshed on expiry.
+Sessions are stored in `~/.aurora/session.<cluster>` (mode 0600).
+Tokens are automatically refreshed on expiry using the stored `refresh_token`.
 
-**`clusters.json` example:**
+---
+
+### `clusters.json` OIDC Configuration Reference
+
+| Key | Required | Default | Description |
+|-----|----------|---------|-------------|
+| `auth_mechanism` | No | `SESSION_TOKEN` | Auth module used by the CLI for scheduler API calls. See [Auth Mechanisms](#auth-mechanisms). |
+| `oidc_issuer` | Yes (OIDC) | — | OIDC provider base URL. Used to fetch `/.well-known/openid-configuration`. Trailing slash is stripped automatically. |
+| `oidc_client_id` | No | `aurora-cli` | OAuth2 client ID registered in the OIDC provider. |
+| `oidc_client_secret` | No | — | OAuth2 client secret for **confidential clients**. Forwarded in token exchange, refresh, and device flow requests. |
+| `oidc_scope` | No | `openid email profile` | Space-separated scope string, or a JSON array. |
+| `oidc_redirect_port` | No | `0` (random) | Fixed TCP port for the browser-flow local callback server. Must match the `redirect_uri` registered in the OIDC client (e.g. `http://localhost:8850/callback`). Use `0` to let the OS assign a free port — **most OIDC providers will reject a random port** because the redirect URI is not pre-registered. |
+
+#### Minimal public client (no secret)
 
 ```json
 {
-  "mycluster": {
-    "name": "mycluster",
-    "zk": "zk-host:2181",
+  "lad-beta": {
+    "name": "lad-beta",
+    "zk": "zk01.example.com:2181",
     "scheduler_zk_path": "/aurora/scheduler",
-    "auth_mechanism": "OIDC_DEVICE",
+    "auth_mechanism": "SESSION_TOKEN",
     "oidc_issuer": "https://auth.example.com",
     "oidc_client_id": "aurora-cli"
   }
 }
 ```
+
+Login:
+```bash
+aurora auth login lad-beta          # browser flow (macOS)
+aurora auth login lad-beta --device # device flow (server / headless)
+```
+
+#### Confidential client (with secret)
+
+Required when the OIDC provider is configured as a **confidential client** (client secret
+is needed for token exchange and refresh).
+
+```json
+{
+  "lad-beta": {
+    "name": "lad-beta",
+    "zk": "zk01.example.com:2181",
+    "scheduler_zk_path": "/aurora/scheduler",
+    "auth_mechanism": "SESSION_TOKEN",
+    "oidc_issuer": "https://auth.example.com",
+    "oidc_client_id": "aurora-cli",
+    "oidc_client_secret": "YOUR_CLIENT_SECRET"
+  }
+}
+```
+
+#### Browser flow with fixed redirect port
+
+Most OIDC providers require the `redirect_uri` to be **exactly pre-registered**. Without
+a fixed port, a random port is used on every invocation and the provider will reject the
+callback with `redirect_uri_mismatch`.
+
+Steps:
+1. Register `http://localhost:8850/callback` in your OIDC client settings.
+2. Add `oidc_redirect_port` to the cluster config:
+
+```json
+{
+  "lad-beta": {
+    "name": "lad-beta",
+    "zk": "zk01.example.com:2181",
+    "scheduler_zk_path": "/aurora/scheduler",
+    "auth_mechanism": "SESSION_TOKEN",
+    "oidc_issuer": "https://auth.example.com",
+    "oidc_client_id": "aurora-cli",
+    "oidc_redirect_port": 8850
+  }
+}
+```
+
+Then use the browser flow:
+```bash
+aurora auth login lad-beta
+# → opens http://localhost:8850/callback (registered URI)
+```
+
+#### Custom scope
+
+```json
+{
+  "lad-beta": {
+    "oidc_scope": "openid email groups"
+  }
+}
+```
+
+Or as a JSON array:
+```json
+{
+  "lad-beta": {
+    "oidc_scope": ["openid", "email", "groups"]
+  }
+}
+```
+
+---
+
+### Auth Mechanisms
+
+The `auth_mechanism` key controls how `aurora` injects credentials into Thrift API calls.
+Default is `SESSION_TOKEN` — no configuration needed after `aurora auth login`.
+
+| Value | Description |
+|-------|-------------|
+| `SESSION_TOKEN` | **(Default)** Injects `Authorization: Bearer` from `~/.aurora/session.<cluster>` (OIDC session) or `~/.aurora/token.<cluster>` (legacy plain token). Auto-refreshes expired OIDC sessions. No-ops silently if no token file exists (backward-compatible with unauthenticated clusters). |
+| `OIDC_DEVICE` | Same Bearer injection as `SESSION_TOKEN`, plus an embedded device-flow fallback via `AURORA_OIDC_ISSUER` / `AURORA_OIDC_CLIENT_ID` environment variables. |
+| `BASIC` | HTTP Basic Auth via `~/.netrc` or explicit username/password. |
+| `PROXY_SESSION` | Injects OAuth2-Proxy session cookie from `~/.aurora/session.<cluster>`. |
+| `UNAUTHENTICATED` | No auth headers — for clusters without authentication. |
 
 ### HTTP Basic Auth
 
@@ -138,15 +240,15 @@ Credentials are stored in Redis as `sha256:<hash(user:password)>` under the key 
 }
 ```
 
-### Session Token
+### Session Token (legacy)
 
-`SESSION_TOKEN` supports both legacy token files and OIDC session files:
+`SESSION_TOKEN` (now the default) supports both legacy token files and OIDC session files:
 
+- OIDC session JSON (written by `aurora auth login`): `~/.aurora/session.<cluster>`
 - Legacy plain token: `~/.aurora/token.<cluster>` (or `~/.aurora/token`)
-- OIDC session JSON: `~/.aurora/session.<cluster>`
 
 When a session JSON is present and expired, the client automatically refreshes it using
-`refresh_token` and `token_endpoint`.
+`refresh_token` and `token_endpoint` stored in the session file.
 
 ```json
 {
@@ -209,12 +311,18 @@ to point directly at its `/oauth2/userinfo` endpoint, bypassing discovery:
 ### Auth flow
 
 ```
-aurora auth login <cluster>          → stores OIDC access_token
-    ↓
-SessionTokenAuth                     → Authorization: Bearer <token>
-    ↓
-ThermosProxyServlet                  → forwards Authorization header (Jetty default)
-    ↓
+aurora auth login <cluster>
+  ├─ browser flow  → Authorization Code + PKCE → ~/.aurora/session.<cluster>
+  └─ --device flag → Device Authorization Flow → ~/.aurora/session.<cluster>
+         ↓
+aurora job list / create / ...
+  └─ SESSION_TOKEN (default auth_mechanism)
+       └─ SessionTokenAuth → Authorization: Bearer <access_token>
+              ↓ (if expired)
+              refresh_token POST → new access_token saved to session file
+         ↓
+ThermosProxyServlet (Jetty)          → forwards Authorization header
+         ↓
 OidcBearerAuth / CombinedAuth        → GET /userinfo → 200 OK → allow
                                                       → non-200 → 401
 ```
