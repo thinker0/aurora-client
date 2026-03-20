@@ -47,8 +47,9 @@ class SchedulerClientTrait(Cluster.Trait):
   zk_port           = Default(Integer, 2181)  # noqa
   scheduler_zk_path = String  # noqa
   scheduler_uri     = String  # noqa
-  proxy_url         = String  # noqa
-  auth_mechanism    = Default(String, 'SESSION_TOKEN')  # noqa
+  proxy_url           = String  # noqa
+  auth_mechanism      = Default(String, 'SESSION_TOKEN')  # noqa
+  scheduler_base_url  = String  # noqa
 
 
 def _bypass_leader_redirect_session_factory(should_bypass=False):

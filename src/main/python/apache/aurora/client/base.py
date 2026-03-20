@@ -167,13 +167,15 @@ def synthesize_url(scheduler_url, role=None, env=None, job=None, update_id=None)
 
 
 def get_job_page(api, jobkey):
-  return synthesize_url(api.scheduler_proxy.scheduler_client().url, jobkey.role,
-                        jobkey.env, jobkey.name)
+  scheduler_url = api.cluster.scheduler_base_url or \
+                  api.scheduler_proxy.scheduler_client().url
+  return synthesize_url(scheduler_url, jobkey.role, jobkey.env, jobkey.name)
 
 
 def get_update_page(api, jobkey, update_id):
-  return synthesize_url(api.scheduler_proxy.scheduler_client().url, jobkey.role,
-                        jobkey.env, jobkey.name, update_id)
+  scheduler_url = api.cluster.scheduler_base_url or \
+                  api.scheduler_proxy.scheduler_client().url
+  return synthesize_url(scheduler_url, jobkey.role, jobkey.env, jobkey.name, update_id)
 
 
 AURORA_V2_USER_AGENT_NAME = 'Aurora V2'

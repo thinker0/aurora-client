@@ -95,6 +95,7 @@ class FakeAuroraCommandContext(AuroraCommandContext):
     mock_scheduler_proxy.scheduler_client.return_value = mock_scheduler_proxy
     mock_api = create_autospec(spec=HookedAuroraClientAPI)
     mock_api.scheduler_proxy = mock_scheduler_proxy
+    mock_api.cluster = Mock(scheduler_base_url=None)
     return mock_api
 
   def print_out(self, msg, indent=0):
@@ -233,6 +234,7 @@ class AuroraClientCommandTest(unittest.TestCase):
     mock_scheduler_client.url = "http://something_or_other"
     mock_api = create_autospec(spec=HookedAuroraClientAPI, instance=True)
     mock_api.scheduler_proxy = mock_scheduler_client
+    mock_api.cluster = Mock(scheduler_base_url=None)
     return mock_api, mock_scheduler_client
 
   @classmethod
