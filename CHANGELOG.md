@@ -28,6 +28,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - `_browser_auth()`: `OSError` on `TCPServer.server_bind()` (e.g. port already in use when
   `oidc_redirect_port` is configured) is now caught and reported to the user with a
   human-readable error message instead of propagating as an unhandled exception.
+- **HTTP 302 redirect now raises `AuthError`** (`common/transport.py`):
+  `TRequestsTransport.flush()` now passes `allow_redirects=False` to the POST request.
+  When the scheduler returns a 3xx redirect (e.g. oauth2-proxy redirecting to the OIDC
+  login page), `AuthError` is raised immediately with the message
+  `"Authentication required. Run: aurora auth login <cluster>."` instead of silently
+  following the redirect and producing a confusing `EOFError` from Thrift binary parsing.
 
 ---
 

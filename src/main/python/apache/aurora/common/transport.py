@@ -127,13 +127,22 @@ class TRequestsTransport(TTransportBase):
           self.__uri,
           data=data,
           timeout=self.__timeout,
-          auth=self.__auth)
+          auth=self.__auth,
+          allow_redirects=False)
+      if response.is_redirect or response.status_code in range(300, 400):
+        location = response.headers.get('Location', '')
+        log.debug('Scheduler returned HTTP %s redirect to: %s', response.status_code, location)
+        raise self.AuthError(
+            'Authentication required. Run: aurora auth login <cluster>. '
+            '(Scheduler returned HTTP %d — not authenticated.)' % response.status_code)
       response.raise_for_status()
       self.__rbuf = BytesIO(response.content)
     except request_exceptions.Timeout:
       raise TTransportException(
           type=TTransportException.TIMED_OUT,
           message='Timed out talking to %s' % self.__uri)
+    except self.AuthError:
+      raise
     except request_exceptions.RequestException as e:
       if e.response is not None:
         log.debug('Request failed, response headers:')

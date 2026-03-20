@@ -114,6 +114,28 @@ def test_raises_auth_error():
   transport.close()
 
 
+def test_raises_auth_error_on_redirect():
+  response = requests.Response()
+  response.status_code = 302
+  response.headers['Location'] = 'https://sso.example.com/oauth2/login'
+
+  session = create_autospec(spec=requests.Session, instance=True)
+  session.headers = {}
+  session.post.return_value = response
+
+  transport = TRequestsTransport('http://localhost:12345', session_factory=lambda: session)
+  protocol = TBinaryProtocol.TBinaryProtocolAccelerated(transport)
+  client = ReadOnlyScheduler.Client(protocol)
+
+  with pytest.raises(TRequestsTransport.AuthError) as excinfo:
+    client.getRoleSummary()
+
+  assert 'aurora auth login' in str(excinfo.value)
+  assert '302' in str(excinfo.value)
+
+  transport.close()
+
+
 def test_request_any_other_exception():
   session = create_autospec(spec=requests.Session, instance=True)
   session.headers = {}
