@@ -432,7 +432,124 @@ def _scheduler_browser_auth(scheduler_base_url, cluster_name, redirect_port=0):
 
 
 # ---------------------------------------------------------------------------
-# Method 3 — Device Authorization Flow (headless / server)
+# Method 3 — Device Authorization Flow via Scheduler Proxy
+# ---------------------------------------------------------------------------
+
+def _scheduler_device_auth(scheduler_base_url, cluster_name, scope=None):
+    """Device login via the scheduler's /oauth2/device-authorize proxy endpoint.
+
+    The scheduler forwards the request to the OIDC provider using its own client_secret,
+    returning a proxy_device_code instead of the real device_code. On success the scheduler
+    issues an aurora_token (scheduler-signed session cookie) instead of raw OIDC tokens.
+    """
+    _validate_https_url(scheduler_base_url, 'scheduler_base_url')
+    device_auth_url = scheduler_base_url.rstrip('/') + '/oauth2/device-authorize'
+    device_token_url = scheduler_base_url.rstrip('/') + '/oauth2/device-token'
+
+    req = urllib.request.Request(
+        device_auth_url,
+        data=urllib.parse.urlencode({
+            'scope': scope or _DEFAULT_OIDC_SCOPE,
+        }).encode(),
+        method='POST',
+    )
+    req.add_header('Content-Type', 'application/x-www-form-urlencoded')
+    try:
+        with urllib.request.urlopen(req, timeout=_TOKEN_TIMEOUT) as resp:
+            dr = json.loads(resp.read())
+    except urllib.error.HTTPError as e:
+        body = ''
+        try:
+            body = e.read().decode('utf-8', errors='replace')
+        except Exception:
+            pass
+        print(f'Device authorization request failed: HTTP {e.code} {body}')
+        return 1
+    except Exception as e:
+        print(f'Device authorization request failed: {e}')
+        return 1
+
+    user_code = dr.get('user_code')
+    verification_uri = dr.get('verification_uri_complete') or dr.get('verification_uri')
+    proxy_device_code = dr.get('proxy_device_code')
+    if not user_code or not verification_uri or not proxy_device_code:
+        print(f'Unexpected device authorization response: {dr}')
+        return 1
+
+    interval = dr.get('interval', 5)
+    expires_in = dr.get('expires_in', 300)
+
+    print()
+    print('=' * 62)
+    print('  Device Authorization  —  cluster: ' + cluster_name)
+    print('=' * 62)
+    if dr.get('verification_uri_complete'):
+        print(f'  Open this URL in any browser:')
+        print(f'  {verification_uri}')
+    else:
+        print(f'  1. Open:        {verification_uri}')
+        print(f'  2. Enter code:  {user_code}')
+    print(f'  (expires in {expires_in}s)')
+    print('=' * 62)
+    print()
+
+    deadline = time.time() + expires_in
+    wait = interval
+    while time.time() < deadline:
+        time.sleep(wait)
+        log.debug('Scheduler device poll POST %s', device_token_url)
+        req = urllib.request.Request(
+            device_token_url,
+            data=urllib.parse.urlencode({'proxy_device_code': proxy_device_code}).encode(),
+            method='POST',
+        )
+        req.add_header('Content-Type', 'application/x-www-form-urlencoded')
+        try:
+            with urllib.request.urlopen(req, timeout=_TOKEN_TIMEOUT) as resp:
+                data = json.loads(resp.read())
+            aurora_token = data.get('aurora_token')
+            if not aurora_token:
+                print(f'Authentication failed: no aurora_token in response')
+                return 1
+            session_data = {
+                'aurora_token': aurora_token,
+                'token_type': 'aurora_cookie',
+                'cluster': cluster_name,
+                'expires_at': int(time.time()) + int(data.get('expires_in', 28800)),
+            }
+            save_session(cluster_name, session_data)
+            print(f'Authenticated. Session saved to {_session_file(cluster_name)}')
+            return 0
+        except urllib.error.HTTPError as e:
+            try:
+                body = json.loads(e.read().decode('utf-8'))
+            except (json.JSONDecodeError, UnicodeDecodeError):
+                print(f'Device token poll failed: HTTP {e.code}')
+                return 1
+            error = body.get('error', '')
+            if error == 'authorization_pending':
+                log.debug('Scheduler device poll: authorization_pending')
+                continue
+            elif error == 'slow_down':
+                wait = min(wait + 5, 60)
+                log.debug('Scheduler device poll: slow_down, new interval=%s', wait)
+                continue
+            elif error == 'expired_token':
+                print('Device code expired. Please try again.')
+                return 1
+            else:
+                print(f'Authentication failed: {error}: {body.get("error_description", "")}')
+                return 1
+        except Exception as e:
+            print(f'Device token poll failed: {e}')
+            return 1
+
+    print('Device authorization timed out.')
+    return 1
+
+
+# ---------------------------------------------------------------------------
+# Method 4 — Device Authorization Flow (direct OIDC, headless / server)
 # ---------------------------------------------------------------------------
 
 def _device_auth(discovery, client_id, cluster_name, client_secret=None, scope=None):
@@ -595,10 +712,14 @@ class LoginVerb(Verb):
         use_device = context.options.device or not _is_browser_available()
 
         if use_device:
+            # Prefer scheduler device proxy: hides client_secret from CLI client.
+            if scheduler_base_url:
+                return _scheduler_device_auth(scheduler_base_url, cluster_name, scope=scope)
+            # Fallback: direct OIDC device flow (requires oidc_issuer + client_secret in config).
             if not oidc_issuer:
                 context.print_err(
-                    f'Cluster "{cluster_name}" has no oidc_issuer. '
-                    'Device flow requires oidc_issuer in clusters.json.'
+                    f'Cluster "{cluster_name}" has no oidc_issuer or scheduler_base_url. '
+                    'Device flow requires one of these in clusters.json.'
                 )
                 return 1
             discovery_url = oidc_issuer.rstrip('/') + '/.well-known/openid-configuration'
