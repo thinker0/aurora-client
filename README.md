@@ -122,6 +122,7 @@ Tokens are automatically refreshed on expiry using the stored `refresh_token`.
 | `oidc_client_secret` | No | — | OAuth2 client secret for **confidential clients**. Forwarded in token exchange, refresh, and device flow requests. |
 | `oidc_scope` | No | `openid email profile` | Space-separated scope string, or a JSON array. |
 | `oidc_redirect_port` | No | `0` (random) | Fixed TCP port for the browser-flow local callback server. Must match the `redirect_uri` registered in the OIDC client (e.g. `http://localhost:8850/callback`). Use `0` to let the OS assign a free port — **most OIDC providers will reject a random port** because the redirect URI is not pre-registered. |
+| `scheduler_base_url` | No | — | Base URL of the Aurora Scheduler HTTP endpoint (e.g. `https://aurora.example.com`). When set, the CLI uses the scheduler as an OIDC proxy for browser and device flows. `oidc_client_secret` is **not** required on the client — it is kept server-side. |
 
 #### Minimal public client (no secret)
 
@@ -214,6 +215,47 @@ Or as a JSON array:
 
 ---
 
+### Scheduler Proxy Auth Flow
+
+When `scheduler_base_url` is set in `clusters.json`, the Aurora Scheduler acts as an OIDC
+proxy on behalf of the CLI. The `oidc_client_secret` stays server-side and is never required
+in the client config.
+
+#### Browser flow (scheduler proxy)
+
+The CLI opens `<scheduler_base_url>/oauth2/cli-authorize?local_port=PORT` in the browser.
+The scheduler performs the OIDC Authorization Code Flow and redirects the resulting
+`aurora_token` cookie to the localhost callback. The session file stores
+`{aurora_token, token_type: "aurora_cookie"}`.
+
+#### Device flow (scheduler proxy)
+
+The CLI POSTs to `/oauth2/device-authorize` (scheduler returns a `proxy_device_code`),
+then polls `/oauth2/device-token` until the user approves. The scheduler proxies the full
+OIDC device flow and returns the `aurora_token`. No `oidc_client_secret` needed on the client.
+
+#### Minimal scheduler-proxy config
+
+```json
+{
+  "lad-prod": {
+    "name": "lad-prod",
+    "zk": "zk01.example.com:2181",
+    "scheduler_zk_path": "/aurora/scheduler",
+    "auth_mechanism": "SESSION_TOKEN",
+    "scheduler_base_url": "https://aurora.example.com",
+    "oidc_issuer": "https://sso.example.com",
+    "oidc_client_id": "aurora-cli"
+  }
+}
+```
+
+> `oidc_issuer` and `oidc_client_id` are still listed here for documentation purposes and
+> for the direct-OIDC fallback path (when `scheduler_base_url` is absent). They are not
+> sent to the scheduler in the proxy flow.
+
+---
+
 ### Auth Mechanisms
 
 The `auth_mechanism` key controls how `aurora` injects credentials into Thrift API calls.
@@ -221,7 +263,7 @@ Default is `SESSION_TOKEN` — no configuration needed after `aurora auth login`
 
 | Value | Description |
 |-------|-------------|
-| `SESSION_TOKEN` | **(Default)** Injects `Authorization: Bearer` from `~/.aurora/session.<cluster>` (OIDC session) or `~/.aurora/token.<cluster>` (legacy plain token). Auto-refreshes expired OIDC sessions. No-ops silently if no token file exists (backward-compatible with unauthenticated clusters). |
+| `SESSION_TOKEN` | **(Default)** Reads `~/.aurora/session.<cluster>` and injects credentials into Thrift API calls. When `token_type` is `"bearer"` (direct OIDC flow), sends `Authorization: Bearer <access_token>` and auto-refreshes on expiry. When `token_type` is `"aurora_cookie"` (scheduler proxy flow), sends `Cookie: aurora_token=<jwt>` instead. Falls back to `~/.aurora/token.<cluster>` (legacy plain token). No-ops silently if no token file exists (backward-compatible with unauthenticated clusters). |
 | `OIDC_DEVICE` | Same Bearer injection as `SESSION_TOKEN`, plus an embedded device-flow fallback via `AURORA_OIDC_ISSUER` / `AURORA_OIDC_CLIENT_ID` environment variables. |
 | `BASIC` | HTTP Basic Auth via `~/.netrc` or explicit username/password. |
 | `PROXY_SESSION` | Injects OAuth2-Proxy session cookie from `~/.aurora/session.<cluster>`. |
@@ -312,14 +354,15 @@ to point directly at its `/oauth2/userinfo` endpoint, bypassing discovery:
 
 ```
 aurora auth login <cluster>
-  ├─ browser flow  → Authorization Code + PKCE → ~/.aurora/session.<cluster>
-  └─ --device flag → Device Authorization Flow → ~/.aurora/session.<cluster>
+  ├─ browser flow (no scheduler_base_url)  → Authorization Code + PKCE → ~/.aurora/session.<cluster>
+  ├─ browser flow (scheduler_base_url set) → GET /oauth2/cli-authorize → aurora_token cookie → ~/.aurora/session.<cluster>
+  ├─ --device flag (no scheduler_base_url) → Direct OIDC Device Flow → ~/.aurora/session.<cluster>
+  └─ --device flag (scheduler_base_url set)→ POST /oauth2/device-authorize → aurora_token → ~/.aurora/session.<cluster>
          ↓
 aurora job list / create / ...
   └─ SESSION_TOKEN (default auth_mechanism)
-       └─ SessionTokenAuth → Authorization: Bearer <access_token>
-              ↓ (if expired)
-              refresh_token POST → new access_token saved to session file
+       ├─ token_type=bearer       → Authorization: Bearer <access_token>  (auto-refresh on expiry)
+       └─ token_type=aurora_cookie→ Cookie: aurora_token=<jwt>
          ↓
 ThermosProxyServlet (Jetty)          → forwards Authorization header
          ↓
