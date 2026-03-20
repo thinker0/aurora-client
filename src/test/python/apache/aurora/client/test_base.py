@@ -143,7 +143,7 @@ class TestBase(unittest.TestCase):
     assert url == 'http://proxy.example.com/scheduler/role/env/job'
 
   def test_get_job_page_no_attribute(self):
-    """scheduler_base_url attribute 자체가 없는 클러스터 (Basic auth 등)"""
+    """Cluster without scheduler_base_url attribute (e.g. Basic auth)"""
     mock_api = MagicMock()
     del mock_api.cluster.scheduler_base_url
     mock_api.scheduler_proxy.scheduler_client.return_value.url = 'http://proxy.example.com'
@@ -164,7 +164,7 @@ class TestBase(unittest.TestCase):
     assert url == 'http://proxy.example.com/scheduler/role/env/job/update/update-123'
 
   def test_get_update_page_no_attribute(self):
-    """scheduler_base_url attribute 자체가 없는 클러스터 (Basic auth 등)"""
+    """Cluster without scheduler_base_url attribute (e.g. Basic auth)"""
     mock_api = MagicMock()
     del mock_api.cluster.scheduler_base_url
     mock_api.scheduler_proxy.scheduler_client.return_value.url = 'http://proxy.example.com'
