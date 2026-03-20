@@ -344,7 +344,94 @@ def _browser_auth(discovery, client_id, cluster_name, client_secret=None, scope=
 
 
 # ---------------------------------------------------------------------------
-# Method 2 — Device Authorization Flow (headless / server)
+# Method 2 — Browser via Scheduler OAuth2 flow (uses scheduler's registered redirect_uri)
+# ---------------------------------------------------------------------------
+
+def _scheduler_browser_auth(scheduler_base_url, cluster_name, redirect_port=0):
+    """Browser login via the scheduler's /oauth2/cli-authorize endpoint.
+
+    The scheduler performs the Authorization Code flow using its own registered
+    redirect_uri (e.g. https://aurora.example.com/oauth2/callback), then redirects
+    the resulting ``aurora_token`` cookie value back to a local callback server.
+    This avoids registering a localhost redirect_uri with the OIDC provider.
+    """
+    bind_port = int(redirect_port) if redirect_port else 0
+
+    aurora_token = [None]
+    stop_event = threading.Event()
+
+    class _CliCallbackHandler(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            params = parse_qs(urlparse(self.path).query)
+            token = params.get('aurora_token', [None])[0]
+            if token:
+                aurora_token[0] = token
+                body = (
+                    b'<html><body><h2>Authenticated!</h2>'
+                    b'<p>You may close this window and return to the terminal.</p>'
+                    b'</body></html>'
+                )
+                self.send_response(200)
+            else:
+                body = b'<html><body><h2>Authentication failed.</h2></body></html>'
+                self.send_response(400)
+            self.send_header('Content-Type', 'text/html; charset=utf-8')
+            self.send_header('Content-Length', str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            stop_event.set()
+
+        def log_message(self, fmt, *args):
+            pass
+
+    server = socketserver.TCPServer(
+        ('127.0.0.1', bind_port), _CliCallbackHandler, bind_and_activate=False)
+    server.allow_reuse_address = True
+    try:
+        server.server_bind()
+        server.server_activate()
+    except OSError as e:
+        server.server_close()
+        print(f'Failed to bind local callback port: {e}')
+        return 1
+    port = server.socket.getsockname()[1]
+
+    cli_auth_url = (
+        scheduler_base_url.rstrip('/') + f'/oauth2/cli-authorize?local_port={port}'
+    )
+    log.debug('Scheduler CLI authorize URL: %s', cli_auth_url)
+
+    t = threading.Thread(target=server.serve_forever, daemon=True)
+    t.start()
+
+    print(f'Opening browser for login on cluster "{cluster_name}"...')
+    webbrowser.open(cli_auth_url)
+    print('Waiting for authentication (timeout 5 minutes)...')
+
+    timed_out = not stop_event.wait(timeout=_BROWSER_TIMEOUT)
+    server.shutdown()
+
+    if timed_out:
+        print('Authentication timed out.')
+        return 1
+
+    if not aurora_token[0]:
+        print('Authentication failed: no token received from scheduler.')
+        return 1
+
+    session_data = {
+        'aurora_token': aurora_token[0],
+        'token_type': 'aurora_cookie',
+        'cluster': cluster_name,
+        'expires_at': int(time.time()) + 28800,
+    }
+    save_session(cluster_name, session_data)
+    print(f'Authenticated. Session saved to {_session_file(cluster_name)}')
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# Method 3 — Device Authorization Flow (headless / server)
 # ---------------------------------------------------------------------------
 
 def _device_auth(discovery, client_id, cluster_name, client_secret=None, scope=None):
@@ -495,31 +582,54 @@ class LoginVerb(Verb):
         client_secret = getattr(cluster, 'oidc_client_secret', None)
         scope = _normalize_oidc_scope(getattr(cluster, 'oidc_scope', None))
         redirect_port = getattr(cluster, 'oidc_redirect_port', 0) or 0
+        scheduler_base_url = getattr(cluster, 'scheduler_base_url', None)
 
-        if not oidc_issuer:
+        if not oidc_issuer and not scheduler_base_url:
             context.print_err(
-                f'Cluster "{cluster_name}" has no oidc_issuer.\n'
-                'Add "oidc_issuer" (and optionally "oidc_client_id", "oidc_scope") to clusters.json.'
+                f'Cluster "{cluster_name}" has no oidc_issuer or scheduler_base_url.\n'
+                'Add "oidc_issuer" or "scheduler_base_url" to clusters.json.'
             )
-            return 1
-
-        discovery_url = oidc_issuer.rstrip('/') + '/.well-known/openid-configuration'
-
-        try:
-            discovery = _oidc_discovery(discovery_url)
-        except Exception as e:
-            context.print_err(f'Failed to fetch OIDC discovery document: {e}')
             return 1
 
         use_device = context.options.device or not _is_browser_available()
 
         if use_device:
+            if not oidc_issuer:
+                context.print_err(
+                    f'Cluster "{cluster_name}" has no oidc_issuer. '
+                    'Device flow requires oidc_issuer in clusters.json.'
+                )
+                return 1
+            discovery_url = oidc_issuer.rstrip('/') + '/.well-known/openid-configuration'
+            try:
+                discovery = _oidc_discovery(discovery_url)
+            except Exception as e:
+                context.print_err(f'Failed to fetch OIDC discovery document: {e}')
+                return 1
             return _device_auth(
                 discovery, client_id, cluster_name, client_secret=client_secret, scope=scope)
-        else:
-            return _browser_auth(
-                discovery, client_id, cluster_name,
-                client_secret=client_secret, scope=scope, redirect_port=redirect_port)
+
+        # Browser flow: prefer scheduler-based flow (no localhost redirect_uri registration needed).
+        if scheduler_base_url:
+            return _scheduler_browser_auth(
+                scheduler_base_url, cluster_name, redirect_port=redirect_port)
+
+        # Fallback: direct OIDC PKCE browser flow (requires redirect_uri pre-registered).
+        if not oidc_issuer:
+            context.print_err(
+                f'Cluster "{cluster_name}" has no oidc_issuer or scheduler_base_url.\n'
+                'Add "scheduler_base_url" or "oidc_issuer" to clusters.json.'
+            )
+            return 1
+        discovery_url = oidc_issuer.rstrip('/') + '/.well-known/openid-configuration'
+        try:
+            discovery = _oidc_discovery(discovery_url)
+        except Exception as e:
+            context.print_err(f'Failed to fetch OIDC discovery document: {e}')
+            return 1
+        return _browser_auth(
+            discovery, client_id, cluster_name,
+            client_secret=client_secret, scope=scope, redirect_port=redirect_port)
 
 
 class Auth(Noun):

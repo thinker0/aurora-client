@@ -217,19 +217,31 @@ class SessionTokenAuth(AuthBase):
     else:
       self._token_file = os.path.expanduser('~/.aurora/token')
 
-    
     self._token = None
+    self._aurora_token = None  # scheduler-issued cookie token (aurora_token)
     try:
       if os.path.exists(self._token_file):
         with open(self._token_file, 'r') as f:
           self._token = f.read().strip()
       if not self._token:
-        self._token = _load_access_token_from_session_file(_cluster_session_file(self._cluster))
+        session = _load_session_data(_cluster_session_file(self._cluster))
+        if session:
+          if session.get('token_type') == 'aurora_cookie' and session.get('aurora_token'):
+            # Scheduler-issued cookie: send as Cookie header, not Bearer.
+            self._aurora_token = session['aurora_token']
+            log.debug('Loaded aurora_token cookie session for cluster %s', self._cluster)
+          else:
+            self._token = _load_access_token_from_session_file(
+                _cluster_session_file(self._cluster))
     except (OSError, UnicodeDecodeError) as e:
       log.warning('Failed to load session token from %s: %s', self._token_file, e)
 
   def __call__(self, request):
-    if self._token:
+    if self._aurora_token:
+      log.debug('SessionTokenAuth: injecting aurora_token cookie')
+      request.headers['Cookie'] = 'aurora_token=%s' % self._aurora_token
+    elif self._token:
+      log.debug('SessionTokenAuth: injecting Bearer token')
       request.headers['Authorization'] = 'Bearer %s' % self._token
     return request
 
