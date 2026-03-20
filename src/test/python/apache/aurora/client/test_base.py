@@ -14,8 +14,10 @@
 import unittest
 
 from unittest import mock
+from unittest.mock import MagicMock
 
 from apache.aurora.client import base
+from apache.aurora.common.aurora_job_key import AuroraJobKey
 from apache.aurora.common.pex_version import UnknownVersion
 
 from gen.apache.aurora.api.ttypes import (
@@ -120,6 +122,55 @@ class TestBase(unittest.TestCase):
     out = base.user_agent()
     expected = 'Aurora;Unknown Version'
     self.assertEqual(out, expected)
+
+  def _make_mock_api(self, scheduler_base_url, proxy_url='http://proxy.example.com'):
+    mock_api = MagicMock()
+    mock_api.cluster = MagicMock()
+    mock_api.cluster.scheduler_base_url = scheduler_base_url
+    mock_api.scheduler_proxy.scheduler_client.return_value.url = proxy_url
+    return mock_api
+
+  def test_get_job_page_with_scheduler_base_url(self):
+    mock_api = self._make_mock_api('http://scheduler.example.com')
+    jobkey = AuroraJobKey('cluster', 'role', 'env', 'job')
+    url = base.get_job_page(mock_api, jobkey)
+    assert url == 'http://scheduler.example.com/scheduler/role/env/job'
+
+  def test_get_job_page_fallback_to_proxy(self):
+    mock_api = self._make_mock_api(None)
+    jobkey = AuroraJobKey('cluster', 'role', 'env', 'job')
+    url = base.get_job_page(mock_api, jobkey)
+    assert url == 'http://proxy.example.com/scheduler/role/env/job'
+
+  def test_get_job_page_no_attribute(self):
+    """scheduler_base_url attribute 자체가 없는 클러스터 (Basic auth 등)"""
+    mock_api = MagicMock()
+    del mock_api.cluster.scheduler_base_url
+    mock_api.scheduler_proxy.scheduler_client.return_value.url = 'http://proxy.example.com'
+    jobkey = AuroraJobKey('cluster', 'role', 'env', 'job')
+    url = base.get_job_page(mock_api, jobkey)
+    assert url == 'http://proxy.example.com/scheduler/role/env/job'
+
+  def test_get_update_page_with_scheduler_base_url(self):
+    mock_api = self._make_mock_api('http://scheduler.example.com')
+    jobkey = AuroraJobKey('cluster', 'role', 'env', 'job')
+    url = base.get_update_page(mock_api, jobkey, 'update-123')
+    assert url == 'http://scheduler.example.com/scheduler/role/env/job/update/update-123'
+
+  def test_get_update_page_fallback_to_proxy(self):
+    mock_api = self._make_mock_api(None)
+    jobkey = AuroraJobKey('cluster', 'role', 'env', 'job')
+    url = base.get_update_page(mock_api, jobkey, 'update-123')
+    assert url == 'http://proxy.example.com/scheduler/role/env/job/update/update-123'
+
+  def test_get_update_page_no_attribute(self):
+    """scheduler_base_url attribute 자체가 없는 클러스터 (Basic auth 등)"""
+    mock_api = MagicMock()
+    del mock_api.cluster.scheduler_base_url
+    mock_api.scheduler_proxy.scheduler_client.return_value.url = 'http://proxy.example.com'
+    jobkey = AuroraJobKey('cluster', 'role', 'env', 'job')
+    url = base.get_update_page(mock_api, jobkey, 'update-123')
+    assert url == 'http://proxy.example.com/scheduler/role/env/job/update/update-123'
 
   @mock.patch('apache.aurora.client.base.log.info')
   @mock.patch('apache.aurora.client.base.sys.exit')
