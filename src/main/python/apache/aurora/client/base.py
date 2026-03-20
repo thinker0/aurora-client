@@ -167,13 +167,13 @@ def synthesize_url(scheduler_url, role=None, env=None, job=None, update_id=None)
 
 
 def get_job_page(api, jobkey):
-  scheduler_url = api.cluster.scheduler_base_url or \
+  scheduler_url = getattr(api.cluster, 'scheduler_base_url', None) or \
                   api.scheduler_proxy.scheduler_client().url
   return synthesize_url(scheduler_url, jobkey.role, jobkey.env, jobkey.name)
 
 
 def get_update_page(api, jobkey, update_id):
-  scheduler_url = api.cluster.scheduler_base_url or \
+  scheduler_url = getattr(api.cluster, 'scheduler_base_url', None) or \
                   api.scheduler_proxy.scheduler_client().url
   return synthesize_url(scheduler_url, jobkey.role, jobkey.env, jobkey.name, update_id)
 
