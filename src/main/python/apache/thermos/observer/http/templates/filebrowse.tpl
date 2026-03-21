@@ -31,7 +31,7 @@
     [data-theme="dark"] {
       --aurora-bg: #121212; --aurora-text-primary: #e0e0e0;
       --aurora-navbar-hover: #2a2a4a; --aurora-toggle-bg: rgba(255,255,255,0.1);
-      --text: #fff; --bg: #000; --log-text: #333; --log-bg: #fff;
+      --text: #e0e0e0; --bg: #1e1e2e; --log-text: #d4d4d4; --log-bg: #1e1e2e;
     }
     body { background-color: var(--aurora-bg); color: var(--aurora-text-primary); }
     .log {
@@ -104,7 +104,7 @@ div.tight
     <p id="indicator" class="log invert"></p>
   </div>
 
-  <div id="data" class="log" style="white-space:pre-wrap; background-color:#EEEEEE;"></div>
+  <div id="data" class="log" style="white-space:pre-wrap;"></div>
 </body>
 
 <script src="/assets/jquery.js"></script>
