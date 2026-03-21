@@ -167,6 +167,7 @@ state of all running tasks.
 
 
 %prep
+chmod -R +w %{_builddir}/apache-aurora-%{AURORA_INTERNAL_VERSION} 2>/dev/null || true
 %setup -n apache-aurora-%{AURORA_INTERNAL_VERSION}
 
 %build
