@@ -178,7 +178,7 @@ wget %{GRADLE_BASEURL}/gradle-%{GRADLE_VERSION}-bin.zip
 unzip gradle-%{GRADLE_VERSION}-bin.zip
 
 # Builds the Aurora scheduler.
-./gradle-%{GRADLE_VERSION}/bin/gradle installDist
+./gradle-%{GRADLE_VERSION}/bin/gradle --no-daemon installDist
 
 # Configures pants to use our distributed platform-specific eggs.
 # This avoids building mesos to produce them.
