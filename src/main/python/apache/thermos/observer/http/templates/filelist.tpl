@@ -119,11 +119,15 @@ div.tight
     --aurora-navbar-hover: #2a2a4a; --aurora-toggle-bg: rgba(255,255,255,0.1);
   }
   body { background-color: var(--aurora-bg); color: var(--aurora-text-primary); }
-  [data-theme="dark"] table { color: var(--aurora-text-primary); }
+  [data-theme="dark"] body { background-color: #121212; color: #e0e0e0; }
+  [data-theme="dark"] table { color: var(--aurora-text-primary); background-color: var(--aurora-surface); }
   [data-theme="dark"] table th,
-  [data-theme="dark"] table td { border-color: var(--aurora-grid); }
-  [data-theme="dark"] tr:nth-child(odd) { background-color: var(--aurora-surface-alt); }
+  [data-theme="dark"] table td { border-color: var(--aurora-grid); background-color: var(--aurora-surface); }
+  [data-theme="dark"] .table-striped > tbody > tr:nth-of-type(odd) > td,
+  [data-theme="dark"] .table-striped > tbody > tr:nth-of-type(odd) > th { background-color: var(--aurora-surface-alt); }
   [data-theme="dark"] .well { background-color: var(--aurora-surface-alt); border-color: var(--aurora-border); }
+  [data-theme="dark"] pre { background-color: var(--aurora-surface); border-color: var(--aurora-border); color: var(--aurora-text-primary); }
+  [data-theme="dark"] a { color: #6eb3f5; }
   .theme-toggle {
     background: var(--aurora-toggle-bg); border: 1px solid rgba(255,255,255,0.3);
     border-radius: 4px; color: #fff; cursor: pointer; font-size: 12px;

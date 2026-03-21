@@ -34,6 +34,7 @@
       --text: #e0e0e0; --bg: #1e1e2e; --log-text: #d4d4d4; --log-bg: #1e1e2e;
     }
     body { background-color: var(--aurora-bg); color: var(--aurora-text-primary); }
+    [data-theme="dark"] body { background-color: #121212; color: #e0e0e0; }
     .log {
       font-family: "Inconsolata", "Monaco", "Courier New", "Courier";
       line-height:14px;
