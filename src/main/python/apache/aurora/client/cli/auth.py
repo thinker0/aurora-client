@@ -1,6 +1,7 @@
 
 import base64
 import hashlib
+import html as _html
 import http.server
 import json
 import os
@@ -33,6 +34,96 @@ _DEFAULT_OIDC_SCOPE = 'openid email profile'
 
 def _session_file(cluster_name):
     return os.path.join(SESSION_DIR, f'session.{cluster_name}')
+
+
+def _render_auth_html(title, message, success=True):
+    t = _html.escape(title)
+    m = _html.escape(message)
+    if success:
+        icon_bg = 'rgba(95, 162, 221, 0.12)'
+        stroke  = '#5FA2DD'
+        svg_icon = '<polyline points="20 6 9 17 4 12"/>'
+    else:
+        icon_bg = 'rgba(214, 60, 57, 0.12)'
+        stroke  = '#d63c39'
+        svg_icon = ('<circle cx="12" cy="12" r="10"/>'
+                    '<line x1="15" y1="9" x2="9" y2="15"/>'
+                    '<line x1="9" y1="9" x2="15" y2="15"/>')
+    content = f'''<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Aurora Scheduler \u2014 {t}</title>
+  <style>
+    *, *::before, *::after {{ box-sizing: border-box; margin: 0; padding: 0; }}
+    body {{
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0d0d1a;
+      color: #e0e0e0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }}
+    .card {{
+      background: #1e1e2e;
+      border: 1px solid #3a3a5a;
+      border-radius: 12px;
+      padding: 48px 56px;
+      text-align: center;
+      max-width: 440px;
+      width: 90%;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+      animation: fadeIn 0.4s ease;
+    }}
+    @keyframes fadeIn {{ from {{ opacity: 0; transform: translateY(12px); }} to {{ opacity: 1; transform: translateY(0); }} }}
+    .logo {{
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: #5FA2DD;
+      margin-bottom: 32px;
+    }}
+    .icon {{
+      width: 72px;
+      height: 72px;
+      margin: 0 auto 24px;
+      border-radius: 50%;
+      background: {icon_bg};
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }}
+    .icon svg {{ width: 38px; height: 38px; }}
+    h1 {{ font-size: 24px; font-weight: 700; color: #ffffff; margin-bottom: 12px; }}
+    p  {{ font-size: 14px; color: #aaaaaa; line-height: 1.7; }}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">&#11042; Aurora Scheduler</div>
+    <div class="icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="{stroke}" stroke-width="2.5"
+           stroke-linecap="round" stroke-linejoin="round">
+        {svg_icon}
+      </svg>
+    </div>
+    <h1>{t}</h1>
+    <p>{m}</p>
+  </div>
+</body>
+</html>'''
+    return content.encode('utf-8')
+
+
+def _auth_success_html(title='Authenticated!', message='You may close this window and return to the terminal.'):
+    return _render_auth_html(title, message, success=True)
+
+
+def _auth_error_html(title='Authentication Failed', message='An error occurred during authentication.'):
+    return _render_auth_html(title, message, success=False)
 
 
 def _normalize_oidc_scope(scope_value):
@@ -240,22 +331,15 @@ def _browser_auth(discovery, client_id, cluster_name, client_secret=None, scope=
             returned_state = params.get('state', [None])[0]
             if returned_state != state:
                 state_error[0] = 'invalid_state'
-                body = (
-                    b'<html><body><h2>Authentication failed: invalid state</h2>'
-                    b'</body></html>'
-                )
+                body = _auth_error_html('Authentication Failed', 'Invalid state parameter (CSRF check failed).')
                 self.send_response(400)
             elif 'code' in params:
                 auth_code[0] = params['code'][0]
-                body = (
-                    b'<html><body><h2>Authentication successful!</h2>'
-                    b'<p>You may close this window and return to the terminal.</p>'
-                    b'</body></html>'
-                )
+                body = _auth_success_html()
                 self.send_response(200)
             else:
                 auth_error[0] = params.get('error', ['unknown'])[0]
-                body = f'<html><body><h2>Authentication failed: {auth_error[0]}</h2></body></html>'.encode()
+                body = _auth_error_html('Authentication Failed', f'The authorization server returned an error: {auth_error[0]}')
                 self.send_response(400)
             self.send_header('Content-Type', 'text/html; charset=utf-8')
             self.send_header('Content-Length', str(len(body)))
@@ -367,14 +451,10 @@ def _scheduler_browser_auth(scheduler_base_url, cluster_name, redirect_port=0):
             token = params.get('aurora_token', [None])[0]
             if token:
                 aurora_token[0] = token
-                body = (
-                    b'<html><body><h2>Authenticated!</h2>'
-                    b'<p>You may close this window and return to the terminal.</p>'
-                    b'</body></html>'
-                )
+                body = _auth_success_html()
                 self.send_response(200)
             else:
-                body = b'<html><body><h2>Authentication failed.</h2></body></html>'
+                body = _auth_error_html()
                 self.send_response(400)
             self.send_header('Content-Type', 'text/html; charset=utf-8')
             self.send_header('Content-Length', str(len(body)))
